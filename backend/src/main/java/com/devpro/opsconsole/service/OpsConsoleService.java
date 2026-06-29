@@ -35,14 +35,14 @@ public class OpsConsoleService {
      */
     public UserAccount login(String username, String password) {
         UserAccount userAccount = opsConsoleRepository.findUserByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("账号或密码错误"));
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在、已禁用或已过期"));
         if (!userAccount.canLogin(LocalDateTime.now())) {
             throw new IllegalArgumentException("用户不存在、已禁用或已过期");
         }
         String passwordHash = opsConsoleRepository.findPasswordHashByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("账号或密码错误"));
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在、已禁用或已过期"));
         if (!matchesPassword(password, passwordHash)) {
-            throw new IllegalArgumentException("账号或密码错误");
+            throw new IllegalArgumentException("用户名或密码错误");
         }
         return userAccount;
     }
