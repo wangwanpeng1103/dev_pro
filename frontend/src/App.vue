@@ -100,6 +100,7 @@ function selectFeature(node: FunctionNode) {
         <div>
           <p class="brand-kicker">GREEN CLOUD OPS</p>
           <h1>绿云运维控制台</h1>
+          <div class="brand-copy-spacer" aria-hidden="true"></div>
         </div>
         <div class="quote-card">
           <p>把入口收拢到一处，把权限留在边界，把运维动作变得清楚。</p>

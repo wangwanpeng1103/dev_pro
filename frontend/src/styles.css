@@ -118,6 +118,11 @@ p {
   line-height: 1.65;
 }
 
+.brand-copy-spacer {
+  height: 48px;
+  margin-top: 18px;
+}
+
 .quote-card {
   width: min(330px, 100%);
   padding: 22px;
