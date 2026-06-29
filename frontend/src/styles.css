@@ -262,7 +262,7 @@ input {
 }
 
 .project-entry {
-  width: min(1480px, calc(100% - 28vw));
+  width: min(1500px, calc(100% - 64px));
   margin: 32px auto;
 }
 
@@ -287,8 +287,10 @@ input {
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(200px, 1fr));
   gap: 18px;
+  width: min(1440px, 100%);
+  margin: 0 auto;
 }
 
 .project-card,
