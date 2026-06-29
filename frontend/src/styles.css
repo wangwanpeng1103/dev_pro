@@ -272,6 +272,10 @@ input {
   margin-bottom: 18px;
 }
 
+.project-entry .section-title {
+  transform: translateX(-160px);
+}
+
 .project-entry .section-title h3 {
   display: inline-flex;
   align-items: center;
