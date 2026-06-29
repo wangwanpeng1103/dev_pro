@@ -201,7 +201,8 @@ input {
 .link-button,
 .admin-tabs button,
 .feature-item,
-.sidebar-back {
+.sidebar-back,
+.topbar-back {
   min-height: 38px;
   border: 0;
   border-radius: 8px;
@@ -224,6 +225,24 @@ input {
   border: 1px solid #cbd8e5;
   color: #26364f;
   background: #ffffff;
+}
+
+.ghost-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.topbar-back {
+  padding: 0 18px;
+  border: 1px solid #cbd8e5;
+  color: #26364f;
+  background: #ffffff;
+  font-weight: 700;
+}
+
+.topbar-back:hover {
+  border-color: #aabbd0;
+  background: #f8fafc;
 }
 
 .link-button {
@@ -450,6 +469,16 @@ input {
   color: #9fb5d1;
 }
 
+.feature-item.active {
+  background: #233047;
+}
+
+.feature-empty {
+  padding: 10px 16px;
+  color: #9fb5d1;
+  font-size: 14px;
+}
+
 .project-content {
   align-self: start;
 }
@@ -478,6 +507,63 @@ input {
 
 .panel {
   padding: 24px;
+}
+
+.user-list-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.user-table {
+  overflow: hidden;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+}
+
+.user-table-head,
+.user-table-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 0.8fr 0.6fr 1.2fr;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.user-table-head {
+  color: #5c789a;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.user-table-row {
+  border-top: 1px solid #edf1f5;
+  color: #344054;
+}
+
+.user-table-row strong {
+  color: #101828;
+}
+
+.empty-state {
+  padding: 26px 16px;
+  color: #718096;
+  text-align: center;
+}
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  color: #718096;
+  font-size: 14px;
+}
+
+.pagination-bar > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .split-list {
@@ -527,5 +613,20 @@ small,
   .project-grid,
   .split-list {
     grid-template-columns: 1fr;
+  }
+
+  .user-table-head {
+    display: none;
+  }
+
+  .user-table-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 6px;
+  }
+
+  .pagination-bar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

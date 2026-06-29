@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import {
-  listFunctionNodes,
   listProjects,
   listUsers,
   login,
-  type FunctionNode,
   type ProjectModule,
   type UserAccount
 } from './api'
 
 type ViewName = 'login' | 'projects' | 'admin' | 'project'
-type AdminTab = 'users' | 'projects' | 'functions'
+type AdminFeature = 'user-list'
 
 const currentView = ref<ViewName>('login')
 const username = ref('admin')
@@ -22,14 +20,18 @@ const currentUser = ref<UserAccount | null>(null)
 const projects = ref<ProjectModule[]>([])
 const users = ref<UserAccount[]>([])
 const selectedProject = ref<ProjectModule | null>(null)
-const selectedFunctions = ref<FunctionNode[]>([])
-const adminTab = ref<AdminTab>('users')
-const temporaryValidHours = ref(24)
+const activeAdminFeature = ref<AdminFeature>('user-list')
+const userPage = ref(1)
+const userPageSize = 8
 
 const isAdmin = computed(() => currentUser.value?.userType === 'ADMIN')
 const visibleProjects = computed(() => projects.value.filter((project) => project.enabled))
-const permanentUsers = computed(() => users.value.filter((user) => user.userType !== 'TEMPORARY'))
-const temporaryUsers = computed(() => users.value.filter((user) => user.userType === 'TEMPORARY'))
+const managedUsers = computed(() => users.value.filter((user) => user.username !== 'admin'))
+const totalUserPages = computed(() => Math.max(1, Math.ceil(managedUsers.value.length / userPageSize)))
+const pagedUsers = computed(() => {
+  const start = (userPage.value - 1) * userPageSize
+  return managedUsers.value.slice(start, start + userPageSize)
+})
 const pageTitle = computed(() => {
   if (currentView.value === 'projects') {
     return '项目模块'
@@ -62,37 +64,44 @@ async function refreshAdminData() {
 
 async function openProject(project: ProjectModule) {
   selectedProject.value = project
-  selectedFunctions.value = await listFunctionNodes(project.code)
+  if (project.code === 'user-admin') {
+    await refreshAdminData()
+    activeAdminFeature.value = 'user-list'
+    userPage.value = 1
+  }
   currentView.value = project.code === 'user-admin' ? 'admin' : 'project'
 }
 
 function logout() {
   currentUser.value = null
   selectedProject.value = null
-  selectedFunctions.value = []
   currentView.value = 'login'
 }
 
 function backToProjects() {
   selectedProject.value = null
-  selectedFunctions.value = []
   currentView.value = 'projects'
-}
-
-function selectFeature(node: FunctionNode) {
-  if (currentView.value !== 'admin') {
-    return
-  }
-  const tabMap: Record<string, AdminTab> = {
-    users: 'users',
-    projects: 'projects',
-    'function-tree': 'functions'
-  }
-  adminTab.value = tabMap[node.code] ?? adminTab.value
 }
 
 function closeErrorDialog() {
   errorMessage.value = ''
+}
+
+function displayUserType(userType: UserAccount['userType']) {
+  const labelMap: Record<UserAccount['userType'], string> = {
+    ADMIN: '管理员',
+    PERMANENT: '永久用户',
+    TEMPORARY: '临时用户'
+  }
+  return labelMap[userType]
+}
+
+function previousUserPage() {
+  userPage.value = Math.max(1, userPage.value - 1)
+}
+
+function nextUserPage() {
+  userPage.value = Math.min(totalUserPages.value, userPage.value + 1)
 }
 </script>
 
@@ -113,7 +122,7 @@ function closeErrorDialog() {
         <ul class="feature-list">
           <li>用户直接授权到项目模块</li>
           <li>支持永久用户和可配置有效期临时用户</li>
-          <li>项目功能树可配置，预留外部链接与 SSO</li>
+          <li>项目功能栏按需扩展，预留外部链接与 SSO</li>
         </ul>
       </aside>
 
@@ -147,10 +156,11 @@ function closeErrorDialog() {
 
     <section v-else class="console-shell">
       <header class="topbar">
-        <div>
+        <div v-if="currentView === 'projects'">
           <p class="eyebrow">{{ currentView === 'projects' ? 'OPS CONSOLE' : selectedProject?.code }}</p>
           <h2>{{ pageTitle }}</h2>
         </div>
+        <button v-else class="topbar-back" type="button" @click="backToProjects">← 返回项目首页</button>
         <div class="user-box">
           <span>{{ currentUser?.displayName }}</span>
           <button class="ghost-button" @click="logout">退出</button>
@@ -179,7 +189,6 @@ function closeErrorDialog() {
 
       <div v-else class="project-workbench">
         <aside class="feature-sidebar">
-          <button class="sidebar-back" @click="backToProjects">← 返回项目</button>
           <div class="sidebar-project">
             <span class="project-icon">{{ selectedProject?.iconText }}</span>
             <div>
@@ -188,75 +197,46 @@ function closeErrorDialog() {
             </div>
           </div>
           <button
-            v-for="node in selectedFunctions"
-            :key="node.id"
-            class="feature-item"
-            @click="selectFeature(node)"
+            v-if="currentView === 'admin'"
+            class="feature-item active"
+            type="button"
+            @click="activeAdminFeature = 'user-list'"
           >
-            {{ node.name }}
-            <small>{{ node.nodeType }}</small>
+            用户列表
+            <small>USER LIST</small>
           </button>
+          <p v-else class="feature-empty">功能模块待补充</p>
         </aside>
 
         <div v-if="currentView === 'admin'" class="content-area admin-grid project-content">
-          <div class="admin-tabs">
-            <button :class="{ active: adminTab === 'users' }" @click="adminTab = 'users'">用户</button>
-            <button :class="{ active: adminTab === 'projects' }" @click="adminTab = 'projects'">项目模块</button>
-            <button :class="{ active: adminTab === 'functions' }" @click="adminTab = 'functions'">功能树</button>
-          </div>
-
-          <section v-if="adminTab === 'users'" class="panel">
+          <section v-if="activeAdminFeature === 'user-list'" class="panel user-list-panel">
             <div class="section-title">
-              <h3>用户体系</h3>
-              <p>第一期采用用户直接授权项目，不引入角色。</p>
+              <h3>用户列表</h3>
+              <p>展示除 admin 外的所有用户，后续新增用户管理动作时在此页扩展。</p>
             </div>
-            <div class="split-list">
+            <div class="user-table">
+              <div class="user-table-head">
+                <span>显示名称</span>
+                <span>账号</span>
+                <span>用户类型</span>
+                <span>状态</span>
+                <span>到期时间</span>
+              </div>
+              <div v-for="user in pagedUsers" :key="user.username" class="user-table-row">
+                <strong>{{ user.displayName }}</strong>
+                <span>{{ user.username }}</span>
+                <span>{{ displayUserType(user.userType) }}</span>
+                <span>{{ user.enabled ? '启用' : '禁用' }}</span>
+                <span>{{ user.expiresAt ?? '-' }}</span>
+              </div>
+              <div v-if="pagedUsers.length === 0" class="empty-state">暂无用户</div>
+            </div>
+            <div class="pagination-bar">
+              <span>共 {{ managedUsers.length }} 条</span>
               <div>
-                <h4>永久用户</h4>
-                <p v-for="user in permanentUsers" :key="user.username" class="list-row">
-                  <span>{{ user.displayName }}</span>
-                  <small>{{ user.username }} · {{ user.userType }}</small>
-                </p>
-              </div>
-              <div>
-                <h4>临时用户</h4>
-                <p class="hint">默认有效期参数：{{ temporaryValidHours }} 小时，后续表单中可自定义。</p>
-                <input v-model="temporaryValidHours" min="1" type="number" />
-                <p v-for="user in temporaryUsers" :key="user.username" class="list-row">
-                  <span>{{ user.displayName }}</span>
-                  <small>{{ user.username }} · 到期 {{ user.expiresAt }}</small>
-                </p>
-              </div>
-            </div>
-          </section>
-
-          <section v-else-if="adminTab === 'projects'" class="panel">
-            <div class="section-title">
-              <h3>项目模块配置</h3>
-              <p>admin 后续可在这里新增项目，并给用户分配项目权限。</p>
-            </div>
-            <div class="table-like">
-              <div v-for="project in projects" :key="project.code" class="table-row">
-                <strong>{{ project.name }}</strong>
-                <span>{{ project.code }}</span>
-                <small>{{ project.enabled ? '启用' : '禁用' }}</small>
-              </div>
-            </div>
-          </section>
-
-          <section v-else class="panel">
-            <div class="section-title">
-              <h3>功能树配置</h3>
-              <p>功能树只控制项目内菜单结构，第一期不做节点级权限。</p>
-            </div>
-            <div class="tree-preview">
-              <div v-for="project in projects" :key="project.code">
-                <strong>{{ project.name }}</strong>
-                <p v-for="node in project.functionNodes" :key="node.id">
-                  {{ node.name }} · {{ node.nodeType }}
-                  <small v-if="node.externalUrl"> · 外部链接</small>
-                  <small v-if="node.ssoEnabled"> · SSO</small>
-                </p>
+                <button class="ghost-button" :disabled="userPage === 1" @click="previousUserPage">上一页</button>
+                <span>{{ userPage }} / {{ totalUserPages }}</span>
+                <button class="ghost-button" :disabled="userPage === totalUserPages" @click="nextUserPage">下一页</button>
               </div>
             </div>
           </section>
