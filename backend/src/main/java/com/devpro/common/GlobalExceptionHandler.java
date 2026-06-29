@@ -29,6 +29,17 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 处理业务参数异常，例如用户不存在、项目模块不存在等可预期错误。
+     *
+     * @param exception 参数异常
+     * @return 标准失败响应
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest().body(ApiResponse.failure(exception.getMessage()));
+    }
+
+    /**
      * 兜底处理未预期异常，日志保留排查上下文，对外返回通用错误提示。
      *
      * @param exception 未处理异常
