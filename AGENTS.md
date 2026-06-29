@@ -7,6 +7,7 @@
 - `backend/`：Spring Boot 3.5.16 后端服务，源码在 `src/main/java`，配置在 `src/main/resources`，测试在 `src/test/java`。
 - `frontend/`：Vue 3 + Vite 前端应用，入口在 `src/main.ts`，页面组件在 `src/`。
 - `database/`：数据库脚本目录，用于存放建表语句、结构变更脚本和初始化数据脚本。
+- `REQUIREMENTS.md`：需求变更记录，用于保存每次需求、约定和实现变更的中文汇总。
 - `docker-compose.yml`：本地联调与部署编排，包含 MySQL、后端、前端。
 - `.env.example`：环境变量示例，复制为 `.env` 后填写本地配置。
 - `README.md`：本地启动与项目说明。
@@ -57,6 +58,12 @@ Vue 组件使用 `PascalCase` 命名，组合式 API 优先使用 `<script setup
 后续只要新增建表语句、表结构变更、索引调整或初始化数据脚本，都默认放到 `database/` 目录。建议按用途拆分为 `database/schema/`、`database/seed/`、`database/migration/`，脚本命名包含日期、序号和业务含义，例如 `20260629_001_create_user_table.sql`。
 
 需要测试或使用 MySQL 连接时，优先使用 `D:\dev\mysql-shell-9.7.0\bin\mysqlsh.exe`，并采用安全密码输入方式。
+
+## 需求记录规范
+
+后续只要用户提出新需求、调整需求、确认技术约定，或项目发生代码、配置、数据库脚本、文档等改动，都必须同步更新 `REQUIREMENTS.md`。记录使用中文，说明日期、需求来源、变更摘要、影响范围和后续待办。
+
+不要在 `REQUIREMENTS.md` 中记录数据库密码、令牌、生产地址等敏感信息；如需说明配置，仅记录配置项名称和用途。
 
 ## 测试规范
 
