@@ -115,7 +115,7 @@ function selectFeature(node: FunctionNode) {
 
       <section class="login-card">
         <p class="eyebrow">登录系统</p>
-        <h2>进入绿云运维控制台</h2>
+        <h2 class="login-title">绿云运维控制台</h2>
         <label>
           用户名
           <input v-model="username" autocomplete="username" />
