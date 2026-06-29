@@ -262,8 +262,8 @@ input {
 }
 
 .project-entry {
-  width: auto;
-  margin: 32px;
+  width: min(1480px, calc(100% - 28vw));
+  margin: 32px auto;
 }
 
 .section-title {
@@ -272,9 +272,22 @@ input {
   margin-bottom: 18px;
 }
 
+.project-entry .section-title h3 {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 18px 0 14px;
+  border: 1px solid #d8e2ed;
+  border-left: 4px solid #2f5bb7;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 26px rgba(16, 27, 47, 0.06);
+}
+
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(220px, 348px));
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
   gap: 18px;
 }
 
