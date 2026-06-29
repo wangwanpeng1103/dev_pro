@@ -34,7 +34,7 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ApiResponse<Map<String, Object>> login(@Valid @RequestBody LoginRequest request) {
-        UserAccount userAccount = opsConsoleService.login(request.username());
+        UserAccount userAccount = opsConsoleService.login(request.username(), request.password());
         List<ProjectModule> projects = opsConsoleService.listProjectsForUser(userAccount.getUsername());
         return ApiResponse.success(Map.of(
                 "user", userAccount,
@@ -42,4 +42,3 @@ public class AuthController {
         ));
     }
 }
-

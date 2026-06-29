@@ -8,212 +8,130 @@ import com.devpro.opsconsole.model.FunctionNode;
 import com.devpro.opsconsole.model.ProjectModule;
 import com.devpro.opsconsole.model.UserAccount;
 import com.devpro.opsconsole.model.UserType;
+import com.devpro.opsconsole.repository.OpsConsoleRepository;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 /**
- * 运维控制台骨架服务，当前用内存数据表达产品模型，后续替换为数据库持久化实现。
+ * 运维控制台业务服务，负责登录校验、用户项目授权、项目模块和功能树配置。
  */
 @Service
 public class OpsConsoleService {
 
-    private final AtomicLong userIdGenerator = new AtomicLong(1);
-    private final AtomicLong projectIdGenerator = new AtomicLong(1);
-    private final AtomicLong functionIdGenerator = new AtomicLong(1);
-    private final Map<String, UserAccount> users = new LinkedHashMap<>();
-    private final Map<String, ProjectModule> projects = new LinkedHashMap<>();
+    private final OpsConsoleRepository opsConsoleRepository;
 
-    public OpsConsoleService() {
-        initProjects();
-        initUsers();
+    public OpsConsoleService(OpsConsoleRepository opsConsoleRepository) {
+        this.opsConsoleRepository = opsConsoleRepository;
     }
 
     /**
-     * 登录并返回当前用户可访问项目，第一期仅做骨架校验，不落真实会话。
+     * 登录并返回当前用户。第一期使用简单密码校验，后续可替换为 Spring Security。
      *
      * @param username 用户名
+     * @param password 密码
      * @return 当前用户
      */
-    public UserAccount login(String username) {
-        UserAccount userAccount = users.get(username);
-        if (userAccount == null || !userAccount.canLogin(LocalDateTime.now())) {
+    public UserAccount login(String username, String password) {
+        UserAccount userAccount = opsConsoleRepository.findUserByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在、已禁用或已过期"));
+        if (!userAccount.canLogin(LocalDateTime.now())) {
             throw new IllegalArgumentException("用户不存在、已禁用或已过期");
+        }
+        String passwordHash = opsConsoleRepository.findPasswordHashByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在、已禁用或已过期"));
+        if (!matchesPassword(password, passwordHash)) {
+            throw new IllegalArgumentException("用户名或密码错误");
         }
         return userAccount;
     }
 
     public List<UserAccount> listUsers() {
-        return users.values().stream()
-                .sorted(Comparator.comparing(UserAccount::getId))
-                .toList();
+        return opsConsoleRepository.findAllUsers();
     }
 
     public UserAccount createPermanentUser(UserRequest request) {
-        UserAccount userAccount = new UserAccount(
-                userIdGenerator.getAndIncrement(),
+        return opsConsoleRepository.insertUser(
                 request.username(),
                 request.displayName(),
+                buildDefaultPasswordHash(request.username()),
                 UserType.PERMANENT,
-                null
+                null,
+                safeProjectCodes(request.projectCodes())
         );
-        grantProjects(userAccount, request.projectCodes());
-        users.put(userAccount.getUsername(), userAccount);
-        return userAccount;
     }
 
     public UserAccount createTemporaryUser(UserRequest request) {
         int validHours = request.validHours() == null ? 24 : request.validHours();
-        UserAccount userAccount = new UserAccount(
-                userIdGenerator.getAndIncrement(),
+        return opsConsoleRepository.insertUser(
                 request.username(),
                 request.displayName(),
+                buildDefaultPasswordHash(request.username()),
                 UserType.TEMPORARY,
-                LocalDateTime.now().plusHours(validHours)
+                LocalDateTime.now().plusHours(validHours),
+                safeProjectCodes(request.projectCodes())
         );
-        grantProjects(userAccount, request.projectCodes());
-        users.put(userAccount.getUsername(), userAccount);
-        return userAccount;
     }
 
     public UserAccount updateUserProjects(String username, ProjectPermissionRequest request) {
-        UserAccount userAccount = requireUser(username);
-        userAccount.getProjectCodes().clear();
-        grantProjects(userAccount, request.projectCodes());
-        return userAccount;
+        opsConsoleRepository.replaceUserProjects(username, safeProjectCodes(request.projectCodes()));
+        return opsConsoleRepository.findUserByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
     }
 
     public List<ProjectModule> listProjectsForUser(String username) {
-        UserAccount userAccount = requireUser(username);
-        if (userAccount.getUserType() == UserType.ADMIN) {
-            return sortedProjects(projects.values().stream().toList());
-        }
-        return sortedProjects(projects.values().stream()
-                .filter(project -> userAccount.getProjectCodes().contains(project.getCode()))
-                .filter(ProjectModule::isEnabled)
-                .toList());
+        UserAccount userAccount = opsConsoleRepository.findUserByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+        return opsConsoleRepository.findProjectsForUser(userAccount);
     }
 
     public List<ProjectModule> listAllProjects() {
-        return sortedProjects(new ArrayList<>(projects.values()));
+        return opsConsoleRepository.findAllProjects();
     }
 
     public ProjectModule createProject(ProjectRequest request) {
-        ProjectModule projectModule = new ProjectModule(
-                projectIdGenerator.getAndIncrement(),
-                request.code(),
-                request.name(),
-                request.description(),
-                request.iconText(),
-                projects.size() * 10 + 10
-        );
-        projects.put(projectModule.getCode(), projectModule);
-        users.values().stream()
-                .filter(user -> user.getUserType() == UserType.ADMIN)
-                .forEach(user -> user.getProjectCodes().add(projectModule.getCode()));
-        return projectModule;
+        return opsConsoleRepository.insertProject(request.code(), request.name(), request.description(), request.iconText());
     }
 
     public List<FunctionNode> listFunctionNodes(String projectCode) {
-        return requireProject(projectCode).getFunctionNodes().stream()
-                .filter(FunctionNode::isEnabled)
-                .sorted(Comparator.comparing(FunctionNode::getSortOrder))
-                .toList();
+        if (opsConsoleRepository.findProjectByCode(projectCode).isEmpty()) {
+            throw new IllegalArgumentException("项目模块不存在");
+        }
+        return opsConsoleRepository.findFunctionNodesByProjectCode(projectCode);
     }
 
     public FunctionNode createFunctionNode(String projectCode, FunctionNodeRequest request) {
-        ProjectModule projectModule = requireProject(projectCode);
+        if (opsConsoleRepository.findProjectByCode(projectCode).isEmpty()) {
+            throw new IllegalArgumentException("项目模块不存在");
+        }
         FunctionNode functionNode = new FunctionNode(
-                functionIdGenerator.getAndIncrement(),
+                null,
                 request.parentId(),
                 request.code(),
                 request.name(),
                 request.nodeType(),
-                projectModule.getFunctionNodes().size() * 10 + 10
+                0
         );
         functionNode.setRoutePath(request.routePath());
         functionNode.setExternalUrl(request.externalUrl());
         functionNode.setSsoEnabled(request.ssoEnabled());
-        projectModule.getFunctionNodes().add(functionNode);
-        return functionNode;
+        return opsConsoleRepository.insertFunctionNode(projectCode, functionNode);
     }
 
-    private void initProjects() {
-        ProjectModule userAdmin = createSeedProject("user-admin", "用户管理", "用户、权限、项目模块和功能树配置", "UA", 10);
-        userAdmin.getFunctionNodes().add(createSeedFunction(null, "users", "用户列表", "/admin/users", 10));
-        userAdmin.getFunctionNodes().add(createSeedFunction(null, "projects", "项目配置", "/admin/projects", 20));
-        userAdmin.getFunctionNodes().add(createSeedFunction(null, "function-tree", "功能树配置", "/admin/functions", 30));
-
-        ProjectModule mihotel = createSeedProject("mihotel", "mihotel", "mihotel 运维项目模块", "MI", 20);
-        mihotel.getFunctionNodes().add(createSeedFunction(null, "overview", "首页", "/projects/mihotel/overview", 10));
-        mihotel.getFunctionNodes().add(createExternalSeedFunction(null, "external-tool", "外部工具入口", "https://example.com", 20));
-
-        ProjectModule ihotel = createSeedProject("ihotel", "ihotel", "ihotel 运维项目模块", "IH", 30);
-        ihotel.getFunctionNodes().add(createSeedFunction(null, "overview", "首页", "/projects/ihotel/overview", 10));
-        ihotel.getFunctionNodes().add(createExternalSeedFunction(null, "sso-placeholder", "SSO 预留入口", "https://example.com/sso", 20));
-    }
-
-    private void initUsers() {
-        UserAccount admin = new UserAccount(userIdGenerator.getAndIncrement(), "admin", "系统管理员", UserType.ADMIN, null);
-        admin.getProjectCodes().addAll(projects.keySet());
-        users.put(admin.getUsername(), admin);
-    }
-
-    private ProjectModule createSeedProject(String code, String name, String description, String iconText, int sortOrder) {
-        ProjectModule projectModule = new ProjectModule(projectIdGenerator.getAndIncrement(), code, name, description, iconText, sortOrder);
-        projects.put(projectModule.getCode(), projectModule);
-        return projectModule;
-    }
-
-    private FunctionNode createSeedFunction(Long parentId, String code, String name, String routePath, int sortOrder) {
-        FunctionNode functionNode = new FunctionNode(functionIdGenerator.getAndIncrement(), parentId, code, name,
-                com.devpro.opsconsole.model.FunctionNodeType.MENU, sortOrder);
-        functionNode.setRoutePath(routePath);
-        return functionNode;
-    }
-
-    private FunctionNode createExternalSeedFunction(Long parentId, String code, String name, String externalUrl, int sortOrder) {
-        FunctionNode functionNode = new FunctionNode(functionIdGenerator.getAndIncrement(), parentId, code, name,
-                com.devpro.opsconsole.model.FunctionNodeType.EXTERNAL_LINK, sortOrder);
-        functionNode.setExternalUrl(externalUrl);
-        return functionNode;
-    }
-
-    private void grantProjects(UserAccount userAccount, List<String> projectCodes) {
-        if (CollectionUtils.isEmpty(projectCodes)) {
-            return;
+    private boolean matchesPassword(String rawPassword, String passwordHash) {
+        if (passwordHash != null && passwordHash.startsWith("{noop}")) {
+            return passwordHash.substring("{noop}".length()).equals(rawPassword);
         }
-        projectCodes.stream()
-                .filter(projects::containsKey)
-                .forEach(userAccount.getProjectCodes()::add);
+        return false;
     }
 
-    private UserAccount requireUser(String username) {
-        UserAccount userAccount = users.get(username);
-        if (userAccount == null) {
-            throw new IllegalArgumentException("用户不存在");
-        }
-        return userAccount;
+    private String buildDefaultPasswordHash(String username) {
+        return "{noop}" + username;
     }
 
-    private ProjectModule requireProject(String projectCode) {
-        ProjectModule projectModule = projects.get(projectCode);
-        if (projectModule == null) {
-            throw new IllegalArgumentException("项目模块不存在");
-        }
-        return projectModule;
-    }
-
-    private List<ProjectModule> sortedProjects(List<ProjectModule> projectModules) {
-        return projectModules.stream()
-                .sorted(Comparator.comparing(ProjectModule::getSortOrder))
-                .toList();
+    private List<String> safeProjectCodes(List<String> projectCodes) {
+        return CollectionUtils.isEmpty(projectCodes) ? List.of() : projectCodes;
     }
 }
 

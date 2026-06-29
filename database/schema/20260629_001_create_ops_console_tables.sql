@@ -1,4 +1,4 @@
-CREATE TABLE sys_user (
+CREATE TABLE IF NOT EXISTS sys_user (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '用户ID',
     username VARCHAR(64) NOT NULL COMMENT '登录用户名',
     display_name VARCHAR(64) NOT NULL COMMENT '展示名称',
@@ -11,7 +11,7 @@ CREATE TABLE sys_user (
     UNIQUE KEY uk_sys_user_username (username)
 ) COMMENT='系统用户表';
 
-CREATE TABLE ops_project (
+CREATE TABLE IF NOT EXISTS ops_project (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '项目模块ID',
     project_code VARCHAR(64) NOT NULL COMMENT '项目编码',
     project_name VARCHAR(128) NOT NULL COMMENT '项目名称',
@@ -24,7 +24,7 @@ CREATE TABLE ops_project (
     UNIQUE KEY uk_ops_project_code (project_code)
 ) COMMENT='运维项目模块表';
 
-CREATE TABLE ops_user_project_permission (
+CREATE TABLE IF NOT EXISTS ops_user_project_permission (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '授权ID',
     user_id BIGINT NOT NULL COMMENT '用户ID',
     project_id BIGINT NOT NULL COMMENT '项目模块ID',
@@ -32,7 +32,7 @@ CREATE TABLE ops_user_project_permission (
     UNIQUE KEY uk_user_project_permission (user_id, project_id)
 ) COMMENT='用户项目模块授权表';
 
-CREATE TABLE ops_function_node (
+CREATE TABLE IF NOT EXISTS ops_function_node (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '功能节点ID',
     project_id BIGINT NOT NULL COMMENT '所属项目模块ID',
     parent_id BIGINT NULL COMMENT '父节点ID',
@@ -48,4 +48,3 @@ CREATE TABLE ops_function_node (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     UNIQUE KEY uk_project_node_code (project_id, node_code)
 ) COMMENT='项目功能树节点表';
-
