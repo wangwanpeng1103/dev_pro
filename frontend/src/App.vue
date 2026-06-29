@@ -146,17 +146,20 @@ function selectFeature(node: FunctionNode) {
       <div v-if="currentView === 'projects'" class="content-area project-entry">
         <div class="section-title">
           <h3>可运维项目</h3>
-          <p>这里仅展示当前用户被授权访问的项目模块，进入项目后再显示对应功能树。</p>
         </div>
         <div class="project-grid">
-          <article v-for="project in visibleProjects" :key="project.code" class="project-card">
+          <button
+            v-for="project in visibleProjects"
+            :key="project.code"
+            class="project-card"
+            type="button"
+            @click="openProject(project)"
+          >
             <span class="project-icon">{{ project.iconText }}</span>
             <div>
               <h4>{{ project.name }}</h4>
-              <p>{{ project.description }}</p>
             </div>
-            <button class="link-button" @click="openProject(project)">进入 →</button>
-          </article>
+          </button>
         </div>
       </div>
 
