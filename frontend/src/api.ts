@@ -53,6 +53,18 @@ export interface HealthStatus {
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
 
+async function parseApiResponse<T>(response: Response): Promise<ApiResponse<T> | null> {
+  const contentType = response.headers.get('Content-Type') ?? ''
+  if (!contentType.includes('application/json')) {
+    return null
+  }
+  try {
+    return (await response.json()) as ApiResponse<T>
+  } catch {
+    return null
+  }
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
@@ -62,11 +74,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...options
   })
 
+  const result = await parseApiResponse<T>(response)
   if (!response.ok) {
-    throw new Error(`请求失败：${response.status}`)
+    throw new Error(result?.message || `请求失败：${response.status}`)
   }
 
-  const result = (await response.json()) as ApiResponse<T>
+  if (!result) {
+    throw new Error('接口返回格式错误')
+  }
   if (!result.success) {
     throw new Error(result.message)
   }
@@ -95,11 +110,14 @@ export function listFunctionNodes(projectCode: string): Promise<FunctionNode[]> 
 
 export async function getHealthStatus(): Promise<ApiResponse<HealthStatus>> {
   const response = await fetch(`${apiBaseUrl}/api/health`)
+  const result = await parseApiResponse<HealthStatus>(response)
 
   if (!response.ok) {
-    throw new Error(`请求失败：${response.status}`)
+    throw new Error(result?.message || `请求失败：${response.status}`)
   }
 
-  return response.json()
+  if (!result) {
+    throw new Error('接口返回格式错误')
+  }
+  return result
 }
-
