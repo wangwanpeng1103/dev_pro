@@ -168,3 +168,20 @@
 
 - 后续在 IDEA 中选择 `DevProApplication-local` 启动即可加载测试库配置。
 - 真实数据库密码仍不进入 Git 仓库。
+
+## 2026-06-29 后端默认读取本地 `.env`
+
+### 需求来源
+
+用户再次使用 IDEA 原启动配置启动后端，日志仍显示 `No active profile set`，导致 DataSource 没有 URL。
+
+### 变更摘要
+
+- 调整 `backend/src/main/resources/application.yml`，默认启用 `local` profile。
+- 配置 Spring Boot 自动尝试导入 `.env` 和 `../.env`，兼容从项目根目录或 `backend/` 目录启动。
+- 保持真实数据库密码只存在本地 `.env`，不提交到 Git。
+
+### 影响范围
+
+- 后续直接运行 `DevProApplication` 也会默认加载 `application-local.yml`。
+- Docker 或其他环境仍可通过 `SPRING_PROFILES_ACTIVE` 覆盖默认 profile。

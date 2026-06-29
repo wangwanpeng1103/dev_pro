@@ -1,6 +1,12 @@
 spring:
   application:
     name: devpro-backend
+  profiles:
+    default: local
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
 
 server:
   port: 8080
@@ -10,4 +16,3 @@ management:
     web:
       exposure:
         include: health,info
-
