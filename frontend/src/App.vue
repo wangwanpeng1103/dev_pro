@@ -100,7 +100,6 @@ function selectFeature(node: FunctionNode) {
         <div>
           <p class="brand-kicker">GREEN CLOUD OPS</p>
           <h1>绿云运维控制台</h1>
-          <p class="brand-copy">集中管理项目入口、用户授权和可扩展运维功能树。</p>
         </div>
         <div class="quote-card">
           <p>把入口收拢到一处，把权限留在边界，把运维动作变得清楚。</p>
