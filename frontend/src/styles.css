@@ -74,14 +74,6 @@ input {
   font-weight: 800;
 }
 
-.brand-mark.small {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: #14b8a6;
-  font-size: 17px;
-}
-
 .brand-kicker,
 .eyebrow {
   margin: 0;
@@ -204,9 +196,9 @@ input {
 .primary-button,
 .ghost-button,
 .link-button,
-.console-sidebar button,
 .admin-tabs button,
-.feature-item {
+.feature-item,
+.sidebar-back {
   min-height: 38px;
   border: 0;
   border-radius: 8px;
@@ -243,57 +235,8 @@ input {
   color: #c0362c;
 }
 
-.console-layout {
+.console-shell {
   min-height: 100vh;
-  display: grid;
-  grid-template-columns: 286px 1fr;
-}
-
-.console-sidebar,
-.feature-sidebar {
-  color: #ffffff;
-  background: #070d1d;
-}
-
-.console-sidebar {
-  padding: 24px 16px;
-}
-
-.sidebar-brand {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  padding: 0 8px 26px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.sidebar-brand p {
-  color: #9fb5d1;
-  font-size: 12px;
-}
-
-.console-sidebar nav {
-  display: grid;
-  gap: 8px;
-  margin-top: 28px;
-}
-
-.console-sidebar button,
-.feature-item {
-  width: 100%;
-  padding: 0 16px;
-  color: #ffffff;
-  text-align: left;
-  background: transparent;
-}
-
-.console-sidebar button.active,
-.feature-item:hover {
-  background: #233047;
-}
-
-.console-main {
-  min-width: 0;
   background: #f4f7fa;
 }
 
@@ -301,8 +244,8 @@ input {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 70px;
-  padding: 14px 32px;
+  min-height: 84px;
+  padding: 16px 32px;
   border-bottom: 1px solid #dde5ee;
   background: #ffffff;
 }
@@ -317,6 +260,10 @@ input {
 .content-area {
   width: min(1080px, calc(100% - 64px));
   margin: 32px auto;
+}
+
+.project-entry {
+  margin-top: 36px;
 }
 
 .section-title {
@@ -343,6 +290,7 @@ input {
 .project-card {
   display: grid;
   gap: 16px;
+  min-height: 236px;
   padding: 22px;
 }
 
@@ -355,6 +303,71 @@ input {
   color: #ffffff;
   background: #101b2f;
   font-weight: 800;
+}
+
+.project-workbench {
+  min-height: calc(100vh - 84px);
+  display: grid;
+  grid-template-columns: 286px 1fr;
+}
+
+.feature-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 24px 16px;
+  color: #ffffff;
+  background: #070d1d;
+}
+
+.sidebar-back {
+  width: 100%;
+  padding: 0 16px;
+  color: #dbe6f3;
+  text-align: left;
+  background: transparent;
+}
+
+.sidebar-back:hover,
+.feature-item:hover {
+  background: #233047;
+}
+
+.sidebar-project {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 0 22px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-project p {
+  color: #9fb5d1;
+  font-size: 12px;
+}
+
+.sidebar-project h3 {
+  margin-top: 2px;
+  font-size: 18px;
+}
+
+.feature-item {
+  width: 100%;
+  display: grid;
+  gap: 2px;
+  padding: 10px 16px;
+  color: #ffffff;
+  text-align: left;
+  background: transparent;
+}
+
+.feature-item small {
+  color: #9fb5d1;
+}
+
+.project-content {
+  align-self: start;
 }
 
 .admin-grid {
@@ -409,28 +422,6 @@ small,
   gap: 10px;
 }
 
-.project-workbench {
-  min-height: calc(100vh - 70px);
-  display: grid;
-  grid-template-columns: 260px 1fr;
-}
-
-.feature-sidebar {
-  display: grid;
-  align-content: start;
-  gap: 10px;
-  padding: 24px 16px;
-}
-
-.feature-sidebar h3 {
-  margin: 18px 0 8px;
-}
-
-.feature-item {
-  display: grid;
-  gap: 2px;
-}
-
 .workspace-panel {
   width: min(860px, calc(100% - 64px));
   align-self: start;
@@ -441,7 +432,6 @@ small,
 
 @media (max-width: 960px) {
   .login-layout,
-  .console-layout,
   .project-workbench {
     grid-template-columns: 1fr;
   }
@@ -450,13 +440,8 @@ small,
     padding: 42px 28px;
   }
 
-  .console-sidebar {
-    display: none;
-  }
-
   .project-grid,
   .split-list {
     grid-template-columns: 1fr;
   }
 }
-

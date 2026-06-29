@@ -11,6 +11,7 @@ import {
 } from './api'
 
 type ViewName = 'login' | 'projects' | 'admin' | 'project'
+type AdminTab = 'users' | 'projects' | 'functions'
 
 const currentView = ref<ViewName>('login')
 const username = ref('admin')
@@ -22,13 +23,19 @@ const projects = ref<ProjectModule[]>([])
 const users = ref<UserAccount[]>([])
 const selectedProject = ref<ProjectModule | null>(null)
 const selectedFunctions = ref<FunctionNode[]>([])
-const adminTab = ref<'users' | 'projects' | 'functions'>('users')
+const adminTab = ref<AdminTab>('users')
 const temporaryValidHours = ref(24)
 
 const isAdmin = computed(() => currentUser.value?.userType === 'ADMIN')
 const visibleProjects = computed(() => projects.value.filter((project) => project.enabled))
 const permanentUsers = computed(() => users.value.filter((user) => user.userType !== 'TEMPORARY'))
 const temporaryUsers = computed(() => users.value.filter((user) => user.userType === 'TEMPORARY'))
+const pageTitle = computed(() => {
+  if (currentView.value === 'projects') {
+    return '项目模块'
+  }
+  return selectedProject.value?.name ?? '绿云运维控制台'
+})
 
 async function handleLogin() {
   errorMessage.value = ''
@@ -71,6 +78,18 @@ function backToProjects() {
   selectedFunctions.value = []
   currentView.value = 'projects'
 }
+
+function selectFeature(node: FunctionNode) {
+  if (currentView.value !== 'admin') {
+    return
+  }
+  const tabMap: Record<string, AdminTab> = {
+    users: 'users',
+    projects: 'projects',
+    'function-tree': 'functions'
+  }
+  adminTab.value = tabMap[node.code] ?? adminTab.value
+}
 </script>
 
 <template>
@@ -112,61 +131,57 @@ function backToProjects() {
       </section>
     </section>
 
-    <section v-else class="console-layout">
-      <aside class="console-sidebar">
-        <div class="sidebar-brand">
-          <span class="brand-mark small">GY</span>
-          <div>
-            <p>绿云运维</p>
-            <strong>控制台</strong>
-          </div>
+    <section v-else class="console-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">{{ currentView === 'projects' ? 'OPS CONSOLE' : selectedProject?.code }}</p>
+          <h2>{{ pageTitle }}</h2>
         </div>
-        <nav>
-          <button :class="{ active: currentView === 'projects' }" @click="backToProjects">项目入口</button>
-          <button v-if="isAdmin" :class="{ active: currentView === 'admin' }" @click="currentView = 'admin'">
-            用户管理
+        <div class="user-box">
+          <span>{{ currentUser?.displayName }}</span>
+          <button class="ghost-button" @click="logout">退出</button>
+        </div>
+      </header>
+
+      <div v-if="currentView === 'projects'" class="content-area project-entry">
+        <div class="section-title">
+          <h3>可运维项目</h3>
+          <p>这里仅展示当前用户被授权访问的项目模块，进入项目后再显示对应功能树。</p>
+        </div>
+        <div class="project-grid">
+          <article v-for="project in visibleProjects" :key="project.code" class="project-card">
+            <span class="project-icon">{{ project.iconText }}</span>
+            <div>
+              <h4>{{ project.name }}</h4>
+              <p>{{ project.description }}</p>
+            </div>
+            <button class="link-button" @click="openProject(project)">进入 →</button>
+          </article>
+        </div>
+      </div>
+
+      <div v-else class="project-workbench">
+        <aside class="feature-sidebar">
+          <button class="sidebar-back" @click="backToProjects">← 返回项目</button>
+          <div class="sidebar-project">
+            <span class="project-icon">{{ selectedProject?.iconText }}</span>
+            <div>
+              <p>{{ selectedProject?.code }}</p>
+              <h3>{{ selectedProject?.name }}</h3>
+            </div>
+          </div>
+          <button
+            v-for="node in selectedFunctions"
+            :key="node.id"
+            class="feature-item"
+            @click="selectFeature(node)"
+          >
+            {{ node.name }}
+            <small>{{ node.nodeType }}</small>
           </button>
-        </nav>
-      </aside>
+        </aside>
 
-      <section class="console-main">
-        <header class="topbar">
-          <div>
-            <p class="eyebrow">{{ currentView === 'project' ? selectedProject?.code : 'OPS CONSOLE' }}</p>
-            <h2>
-              {{
-                currentView === 'projects'
-                  ? '项目模块'
-                  : currentView === 'admin'
-                    ? '用户与项目配置'
-                    : selectedProject?.name
-              }}
-            </h2>
-          </div>
-          <div class="user-box">
-            <span>{{ currentUser?.displayName }}</span>
-            <button class="ghost-button" @click="logout">退出</button>
-          </div>
-        </header>
-
-        <div v-if="currentView === 'projects'" class="content-area">
-          <div class="section-title">
-            <h3>可运维项目</h3>
-            <p>这里只展示当前用户被授权访问的项目模块。</p>
-          </div>
-          <div class="project-grid">
-            <article v-for="project in visibleProjects" :key="project.code" class="project-card">
-              <span class="project-icon">{{ project.iconText }}</span>
-              <div>
-                <h4>{{ project.name }}</h4>
-                <p>{{ project.description }}</p>
-              </div>
-              <button class="link-button" @click="openProject(project)">进入 →</button>
-            </article>
-          </div>
-        </div>
-
-        <div v-else-if="currentView === 'admin'" class="content-area admin-grid">
+        <div v-if="currentView === 'admin'" class="content-area admin-grid project-content">
           <div class="admin-tabs">
             <button :class="{ active: adminTab === 'users' }" @click="adminTab = 'users'">用户</button>
             <button :class="{ active: adminTab === 'projects' }" @click="adminTab = 'projects'">项目模块</button>
@@ -188,7 +203,7 @@ function backToProjects() {
               </div>
               <div>
                 <h4>临时用户</h4>
-                <p class="hint">默认有效期参数：{{ temporaryValidHours }} 小时，可在后续表单中自定义。</p>
+                <p class="hint">默认有效期参数：{{ temporaryValidHours }} 小时，后续表单中可自定义。</p>
                 <input v-model="temporaryValidHours" min="1" type="number" />
                 <p v-for="user in temporaryUsers" :key="user.username" class="list-row">
                   <span>{{ user.displayName }}</span>
@@ -230,23 +245,12 @@ function backToProjects() {
           </section>
         </div>
 
-        <div v-else class="project-workbench">
-          <aside class="feature-sidebar">
-            <button class="ghost-button" @click="backToProjects">← 返回项目</button>
-            <h3>{{ selectedProject?.name }}</h3>
-            <button v-for="node in selectedFunctions" :key="node.id" class="feature-item">
-              {{ node.name }}
-              <small>{{ node.nodeType }}</small>
-            </button>
-          </aside>
-          <section class="workspace-panel">
-            <p class="eyebrow">{{ selectedProject?.code }}</p>
-            <h3>运维工作区骨架</h3>
-            <p>这里后续承载 {{ selectedProject?.name }} 的具体运维工具。功能清单待你下次补充。</p>
-          </section>
-        </div>
-      </section>
+        <section v-else class="workspace-panel">
+          <p class="eyebrow">{{ selectedProject?.code }}</p>
+          <h3>运维工作区骨架</h3>
+          <p>这里后续承载 {{ selectedProject?.name }} 的具体运维工具。功能清单待你下次补充。</p>
+        </section>
+      </div>
     </section>
   </main>
 </template>
-
