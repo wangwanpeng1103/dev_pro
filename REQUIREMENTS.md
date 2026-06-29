@@ -151,3 +151,20 @@
 
 - 当前后端不再依赖内存 Map 作为主数据来源。
 - 第一阶段仍使用简单 `{noop}` 密码格式，后续需要接入更安全的密码哈希策略。
+
+## 2026-06-29 配置本地 IDEA 启动环境变量
+
+### 需求来源
+
+用户使用 IDEA 直接启动后端时报 DataSource 配置缺失，要求把环境变量配置进去。
+
+### 变更摘要
+
+- 本地 `.env` 已包含 `SPRING_PROFILES_ACTIVE=local`、数据库 URL、用户名和密码。
+- 新增本机 IDEA Run Configuration：`DevProApplication-local`，用于启动后端时自动启用 `local` profile 并注入数据库环境变量。
+- 该配置位于 `backend/.idea/runConfigurations/`，属于本地忽略目录，不提交到 Git。
+
+### 影响范围
+
+- 后续在 IDEA 中选择 `DevProApplication-local` 启动即可加载测试库配置。
+- 真实数据库密码仍不进入 Git 仓库。
