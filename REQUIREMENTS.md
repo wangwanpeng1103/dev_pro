@@ -185,3 +185,19 @@
 
 - 后续直接运行 `DevProApplication` 也会默认加载 `application-local.yml`。
 - Docker 或其他环境仍可通过 `SPRING_PROFILES_ACTIVE` 覆盖默认 profile。
+
+## 2026-06-29 增加后端启动成功日志
+
+### 需求来源
+
+用户反馈后端启动后不容易判断是否成功，要求在日志中增加明确的项目启动成功提示。
+
+### 变更摘要
+
+- 在 `DevProApplication` 中监听 `ApplicationReadyEvent`。
+- 应用完全启动后输出“绿云运维控制台后端启动成功”。
+- 日志同时打印本地访问地址、健康检查地址和当前 profile。
+
+### 影响范围
+
+- 后续本地启动时，可以通过醒目的启动成功日志确认服务已经可用。
