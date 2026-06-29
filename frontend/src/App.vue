@@ -90,6 +90,10 @@ function selectFeature(node: FunctionNode) {
   }
   adminTab.value = tabMap[node.code] ?? adminTab.value
 }
+
+function closeErrorDialog() {
+  errorMessage.value = ''
+}
 </script>
 
 <template>
@@ -127,8 +131,18 @@ function selectFeature(node: FunctionNode) {
         <button class="primary-button" :disabled="loading" @click="handleLogin">
           {{ loading ? '登录中...' : '登录' }}
         </button>
-        <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
       </section>
+
+      <div v-if="errorMessage" class="dialog-backdrop" role="presentation">
+        <section class="error-dialog" role="alertdialog" aria-modal="true" aria-labelledby="error-dialog-title">
+          <div class="dialog-mark">!</div>
+          <div>
+            <h3 id="error-dialog-title">登录失败</h3>
+            <p>{{ errorMessage }}</p>
+          </div>
+          <button class="primary-button dialog-button" type="button" @click="closeErrorDialog">确定</button>
+        </section>
+      </div>
     </section>
 
     <section v-else class="console-shell">
