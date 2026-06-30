@@ -567,6 +567,15 @@ select:disabled {
   text-align: center;
 }
 
+.user-table-head span:nth-child(3),
+.user-table-head span:nth-child(4),
+.user-table-head span:nth-child(5),
+.user-table-row > span:nth-child(3),
+.user-table-row > span:nth-child(4),
+.user-table-row > span:nth-child(5) {
+  justify-self: center;
+}
+
 .user-table-row {
   border-top: 1px solid #edf1f5;
   color: #344054;
@@ -600,6 +609,108 @@ select:disabled {
 
 .danger-button.action-button {
   min-height: 28px;
+}
+
+.user-type-badge,
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-type {
+  border-color: #fecaca;
+  color: #b42318;
+  background: #fff1f1;
+}
+
+.permanent-type {
+  border-color: #b7d7c7;
+  color: #176044;
+  background: #eefaf3;
+}
+
+.temporary-type {
+  border-color: #bfd4ff;
+  color: #2456a6;
+  background: #f0f5ff;
+}
+
+.temporary-status {
+  border-color: #bfd4ff;
+  color: #2456a6;
+  background: #f0f5ff;
+}
+
+.enabled-status {
+  border-color: #b7d7c7;
+  color: #176044;
+  background: #eefaf3;
+}
+
+.admin-status {
+  border-color: #fecaca;
+  color: #b42318;
+  background: #fff1f1;
+}
+
+.disabled-status {
+  border-color: #d6dbe3;
+  color: #5c6675;
+  background: #f3f5f7;
+}
+
+.expires-cell {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.permanent-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  min-width: 72px;
+  padding: 0 10px;
+  border: 1px solid #b7d7c7;
+  border-radius: 999px;
+  color: #176044;
+  background: #eefaf3;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.permanent-badge-icon {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #2f8f63;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.admin-permanent-badge {
+  border-color: #fecaca;
+  color: #b42318;
+  background: #fff1f1;
+}
+
+.admin-permanent-badge .permanent-badge-icon {
+  background: #d92d20;
 }
 
 .form-dialog {

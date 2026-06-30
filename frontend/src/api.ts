@@ -57,6 +57,10 @@ export interface UserPasswordUpdateRequest {
   newPassword: string
 }
 
+export interface TemporaryUserTimeExtendRequest {
+  extendHours: number
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
 
 async function parseApiResponse<T>(response: Response): Promise<ApiResponse<T> | null> {
@@ -143,6 +147,16 @@ export function updateUserPassword(
 ): Promise<void> {
   const query = `?operatorUsername=${encodeURIComponent(operatorUsername)}`
   return request<void>(`/api/user-admin/users/${encodeURIComponent(username)}/password${query}`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function extendTemporaryUserTime(
+  username: string,
+  payload: TemporaryUserTimeExtendRequest
+): Promise<UserAccount> {
+  return request<UserAccount>(`/api/user-admin/users/${encodeURIComponent(username)}/temporary-time`, {
     method: 'POST',
     body: JSON.stringify(payload)
   })

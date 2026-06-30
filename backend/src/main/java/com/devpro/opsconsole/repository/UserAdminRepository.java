@@ -138,6 +138,19 @@ public class UserAdminRepository {
         }
     }
 
+    /**
+     * 更新临时用户到期时间，限定用户类型避免误改永久用户或管理员。
+     */
+    public void updateTemporaryUserExpiresAt(String username, LocalDateTime expiresAt) {
+        int updatedRows = sysUserMapper.update(new LambdaUpdateWrapper<SysUserEntity>()
+                .set(SysUserEntity::getExpiresAt, expiresAt)
+                .eq(SysUserEntity::getUsername, username)
+                .eq(SysUserEntity::getUserType, UserType.TEMPORARY.name()));
+        if (updatedRows == 0) {
+            throw new IllegalArgumentException("临时用户不存在");
+        }
+    }
+
     public void replaceUserProjects(String username, Collection<String> projectCodes) {
         Long userId = findUserId(username);
         permissionMapper.delete(new LambdaQueryWrapper<OpsUserProjectPermissionEntity>()

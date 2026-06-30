@@ -4,6 +4,7 @@ import {
   createPermanentUser,
   createTemporaryUser,
   deleteUser,
+  extendTemporaryUserTime,
   listProjects,
   listUsers,
   login,
@@ -37,6 +38,7 @@ const userDialogMode = ref<UserDialogMode>('create')
 const userDialogVisible = ref(false)
 const passwordDialogVisible = ref(false)
 const deleteDialogVisible = ref(false)
+const extendTimeDialogVisible = ref(false)
 const selectedUser = ref<UserAccount | null>(null)
 const formSaving = ref(false)
 const userForm = ref({
@@ -49,6 +51,9 @@ const userForm = ref({
 })
 const passwordForm = ref({
   password: ''
+})
+const extendTimeForm = ref({
+  extendHours: 24
 })
 
 const isAdmin = computed(() => currentUser.value?.userType === 'ADMIN')
@@ -134,8 +139,70 @@ function displayUserType(userType: UserAccount['userType']) {
   return labelMap[userType]
 }
 
+function userTypeBadgeClass(userType: UserAccount['userType']) {
+  return {
+    ADMIN: 'user-type-badge admin-type',
+    PERMANENT: 'user-type-badge permanent-type',
+    TEMPORARY: 'user-type-badge temporary-type'
+  }[userType]
+}
+
+function statusBadgeClass(user: UserAccount) {
+  if (user.userType === 'ADMIN') {
+    return 'status-badge admin-status'
+  }
+  if (user.userType === 'TEMPORARY') {
+    return 'status-badge temporary-status'
+  }
+  return user.enabled ? 'status-badge enabled-status' : 'status-badge disabled-status'
+}
+
+function displayUserStatus(user: UserAccount) {
+  if (user.userType === 'TEMPORARY') {
+    return '临时'
+  }
+  return user.enabled ? '启用' : '禁用'
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return '-'
+  }
+  const normalizedValue = value.includes('T') ? value : value.replace(' ', 'T')
+  const date = new Date(normalizedValue)
+  if (Number.isNaN(date.getTime())) {
+    return value.replace('T', ' ')
+  }
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate())
+  ].join('-') + ' ' + [
+    pad(date.getHours()),
+    pad(date.getMinutes()),
+    pad(date.getSeconds())
+  ].join(':')
+}
+
 function isCurrentUserRow(user: UserAccount) {
   return user.username === currentUser.value?.username
+}
+
+function canEditUserInfo(user: UserAccount) {
+  return !isCurrentUserRow(user) && user.userType === 'PERMANENT'
+}
+
+function canExtendTemporaryUser(user: UserAccount) {
+  return !isCurrentUserRow(user) && user.userType === 'TEMPORARY'
+}
+
+function isPermanentAccessUser(user: UserAccount) {
+  return user.userType === 'ADMIN' || user.userType === 'PERMANENT'
+}
+
+function permanentBadgeClass(user: UserAccount) {
+  return user.userType === 'ADMIN' ? 'permanent-badge admin-permanent-badge' : 'permanent-badge'
 }
 
 function openCreateUserDialog() {
@@ -200,6 +267,21 @@ function closeDeleteDialog() {
   deleteDialogVisible.value = false
 }
 
+function openExtendTimeDialog(user: UserAccount) {
+  selectedUser.value = user
+  extendTimeForm.value = {
+    extendHours: 24
+  }
+  extendTimeDialogVisible.value = true
+}
+
+function closeExtendTimeDialog() {
+  if (formSaving.value) {
+    return
+  }
+  extendTimeDialogVisible.value = false
+}
+
 async function submitUserForm() {
   formSaving.value = true
   errorMessage.value = ''
@@ -208,7 +290,6 @@ async function submitUserForm() {
       const payload = {
         username: userForm.value.username,
         displayName: userForm.value.displayName,
-        enabled: userForm.value.enabled,
         projectCodes: userForm.value.projectCodes
       }
       if (userForm.value.userType === 'TEMPORARY') {
@@ -220,7 +301,10 @@ async function submitUserForm() {
           validHours: userForm.value.validHours
         })
       } else {
-        await createPermanentUser(payload)
+        await createPermanentUser({
+          ...payload,
+          enabled: userForm.value.enabled
+        })
       }
       successMessage.value = '用户新增成功'
     } else if (selectedUser.value) {
@@ -272,6 +356,30 @@ async function submitPasswordForm() {
     successMessage.value = '密码修改成功'
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '修改密码失败'
+  } finally {
+    formSaving.value = false
+  }
+}
+
+async function submitExtendTimeForm() {
+  if (!selectedUser.value) {
+    return
+  }
+  if (!Number.isInteger(extendTimeForm.value.extendHours) || extendTimeForm.value.extendHours <= 0) {
+    errorMessage.value = '增加时间必须是正整数小时'
+    return
+  }
+  formSaving.value = true
+  errorMessage.value = ''
+  try {
+    await extendTemporaryUserTime(selectedUser.value.username, {
+      extendHours: extendTimeForm.value.extendHours
+    })
+    extendTimeDialogVisible.value = false
+    successMessage.value = '临时时间增加成功'
+    await refreshAdminData()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '增加临时时间失败'
   } finally {
     formSaving.value = false
   }
@@ -415,17 +523,35 @@ async function nextUserPage() {
               <div v-for="user in pagedUsers" :key="user.username" class="user-table-row">
                 <span>{{ user.displayName }}</span>
                 <span>{{ user.username }}</span>
-                <span>{{ displayUserType(user.userType) }}</span>
-                <span>{{ user.enabled ? '启用' : '禁用' }}</span>
-                <span>{{ user.expiresAt ?? '-' }}</span>
+                <span>
+                  <span :class="userTypeBadgeClass(user.userType)">{{ displayUserType(user.userType) }}</span>
+                </span>
+                <span>
+                  <span :class="statusBadgeClass(user)">{{ displayUserStatus(user) }}</span>
+                </span>
+                <span class="expires-cell">
+                  <span v-if="isPermanentAccessUser(user)" :class="permanentBadgeClass(user)">
+                    <span class="permanent-badge-icon">∞</span>
+                    永久
+                  </span>
+                  <span v-else>{{ formatDateTime(user.expiresAt) }}</span>
+                </span>
                 <div class="user-actions">
                   <button
-                    v-if="!isCurrentUserRow(user)"
+                    v-if="canEditUserInfo(user)"
                     class="ghost-button action-button"
                     type="button"
                     @click="openEditUserDialog(user)"
                   >
                     修改信息
+                  </button>
+                  <button
+                    v-if="canExtendTemporaryUser(user)"
+                    class="ghost-button action-button"
+                    type="button"
+                    @click="openExtendTimeDialog(user)"
+                  >
+                    增加时间
                   </button>
                   <button class="ghost-button action-button" type="button" @click="openPasswordDialog(user)">修改密码</button>
                   <button
@@ -482,7 +608,7 @@ async function nextUserPage() {
               <option value="TEMPORARY">临时用户</option>
             </select>
           </label>
-          <label>
+          <label v-if="userForm.userType !== 'TEMPORARY'">
             状态
             <select v-model="userForm.enabled">
               <option :value="true">启用</option>
@@ -525,6 +651,26 @@ async function nextUserPage() {
         </label>
         <div class="dialog-actions">
           <button class="ghost-button" type="button" @click="closePasswordDialog">取消</button>
+          <button class="primary-button dialog-submit-button" type="submit" :disabled="formSaving">
+            {{ formSaving ? '保存中...' : '保存' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="extendTimeDialogVisible" class="dialog-backdrop" role="presentation">
+      <form class="form-dialog password-form-dialog" @submit.prevent="submitExtendTimeForm">
+        <div class="dialog-header">
+          <h3>增加临时时间</h3>
+          <button class="icon-close-button" type="button" aria-label="关闭" @click="closeExtendTimeDialog">×</button>
+        </div>
+        <p>给临时用户 {{ selectedUser?.username }} 增加可用时间。</p>
+        <label class="inline-password-field">
+          小时：
+          <input v-model.number="extendTimeForm.extendHours" min="1" step="1" type="number" required />
+        </label>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" @click="closeExtendTimeDialog">取消</button>
           <button class="primary-button dialog-submit-button" type="submit" :disabled="formSaving">
             {{ formSaving ? '保存中...' : '保存' }}
           </button>

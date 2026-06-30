@@ -2,6 +2,7 @@ package com.devpro.opsconsole.controller;
 
 import com.devpro.common.ApiResponse;
 import com.devpro.common.PageResult;
+import com.devpro.opsconsole.dto.TemporaryUserTimeExtendRequest;
 import com.devpro.opsconsole.dto.UserPasswordUpdateRequest;
 import com.devpro.opsconsole.dto.UserRequest;
 import com.devpro.opsconsole.dto.UserUpdateRequest;
@@ -93,4 +94,14 @@ public class UserAdminController {
         return ApiResponse.success(userAdminService.createTemporaryUser(request));
     }
 
+    /**
+     * 给临时用户快速增加有效时间，仅允许操作临时用户账号。
+     */
+    @PostMapping("/users/{username}/temporary-time")
+    public ApiResponse<UserAccount> extendTemporaryUserTime(
+            @PathVariable String username,
+            @Valid @RequestBody TemporaryUserTimeExtendRequest request
+    ) {
+        return ApiResponse.success(userAdminService.extendTemporaryUserTime(username, request));
+    }
 }

@@ -1,6 +1,7 @@
 package com.devpro.opsconsole.service;
 
 import com.devpro.common.PageResult;
+import com.devpro.opsconsole.dto.TemporaryUserTimeExtendRequest;
 import com.devpro.opsconsole.dto.UserPasswordUpdateRequest;
 import com.devpro.opsconsole.dto.UserRequest;
 import com.devpro.opsconsole.dto.UserUpdateRequest;
@@ -65,6 +66,11 @@ public class UserAdminService {
      */
     @Transactional
     public UserAccount updateUser(String username, UserUpdateRequest request) {
+        UserAccount userAccount = userAdminRepository.findUserByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+        if (userAccount.getUserType() != UserType.PERMANENT) {
+            throw new IllegalArgumentException("只能修改永久用户信息");
+        }
         userAdminRepository.updateUser(
                 username,
                 request.displayName(),
@@ -100,10 +106,30 @@ public class UserAdminService {
                 request.displayName(),
                 buildDefaultPasswordHash(),
                 UserType.TEMPORARY,
-                request.enabled() == null || request.enabled(),
+                true,
                 LocalDateTime.now().plusHours(validHours),
                 assignableProjectCodes(request.projectCodes())
         );
+    }
+
+    /**
+     * 给临时用户增加有效时间。若原到期时间已过期，则从当前时间开始叠加。
+     */
+    @Transactional
+    public UserAccount extendTemporaryUserTime(String username, TemporaryUserTimeExtendRequest request) {
+        UserAccount userAccount = userAdminRepository.findUserByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+        if (userAccount.getUserType() != UserType.TEMPORARY) {
+            throw new IllegalArgumentException("只能给临时用户增加时间");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime baseTime = userAccount.getExpiresAt() == null || userAccount.getExpiresAt().isBefore(now)
+                ? now
+                : userAccount.getExpiresAt();
+        LocalDateTime expiresAt = baseTime.plusHours(validTemporaryHours(request.extendHours()));
+        userAdminRepository.updateTemporaryUserExpiresAt(username, expiresAt);
+        return userAdminRepository.findUserByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
     }
 
     private String buildDefaultPasswordHash() {

@@ -31,12 +31,15 @@ public class UserAccount {
     }
 
     /**
-     * 判断用户当前是否允许登录，临时用户需要额外校验有效期。
+     * 判断用户当前是否允许登录：临时用户只校验有效期，永久用户和管理员校验启用状态。
      *
      * @param now 当前时间
      * @return 是否可登录
      */
     public boolean canLogin(LocalDateTime now) {
-        return enabled && (expiresAt == null || expiresAt.isAfter(now));
+        if (userType == UserType.TEMPORARY) {
+            return expiresAt != null && expiresAt.isAfter(now);
+        }
+        return enabled;
     }
 }
