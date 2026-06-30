@@ -20,7 +20,7 @@ import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 /**
- * 运维控制台 MySQL 数据访问层，负责用户、项目模块和功能树的持久化读写。
+ * 运维控制台 MySQL 数据访问层，负责用户、项目模块和项目功能入口的持久化读写。
  */
 @Repository
 public class OpsConsoleRepository {
@@ -67,6 +67,34 @@ public class OpsConsoleRepository {
         return users;
     }
 
+    /**
+     * 按用户类型查询账号，并补齐每个用户已授权的项目编码。
+     *
+     * @param userType 用户类型
+     * @return 指定类型的用户列表
+     */
+    public List<UserAccount> findUsersByType(UserType userType) {
+        List<UserAccount> users = jdbcTemplate.query("""
+                SELECT id, username, display_name, user_type, enabled, expires_at
+                FROM sys_user
+                WHERE user_type = ?
+                ORDER BY id
+                """, userRowMapper(), userType.name());
+        users.forEach(this::loadProjectCodes);
+        return users;
+    }
+
+    /**
+     * 新增用户主表记录，并同步写入项目授权关系。
+     *
+     * @param username 登录账号
+     * @param displayName 展示名称
+     * @param passwordHash 密码哈希
+     * @param userType 用户类型
+     * @param expiresAt 临时用户过期时间，永久用户为空
+     * @param projectCodes 授权项目编码集合
+     * @return 新增后的用户信息
+     */
     public UserAccount insertUser(String username, String displayName, String passwordHash, UserType userType,
             LocalDateTime expiresAt, Collection<String> projectCodes) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -92,6 +120,36 @@ public class OpsConsoleRepository {
         replaceUserProjects(username, projectCodes);
         userAccount.getProjectCodes().addAll(projectCodes);
         return userAccount;
+    }
+
+    /**
+     * 修改永久用户基础信息，并重建该用户的项目授权关系。
+     *
+     * @param username 登录账号
+     * @param displayName 展示名称
+     * @param enabled 是否启用
+     * @param projectCodes 授权项目编码集合
+     */
+    public void updatePermanentUser(String username, String displayName, boolean enabled, Collection<String> projectCodes) {
+        // 先更新用户主表，再重建项目授权，保证页面读取到的是最新账号状态。
+        jdbcTemplate.update("""
+                UPDATE sys_user
+                SET display_name = ?, enabled = ?, expires_at = NULL
+                WHERE username = ? AND user_type = 'PERMANENT'
+                """, displayName, enabled, username);
+        replaceUserProjects(username, projectCodes);
+    }
+
+    /**
+     * 删除用户主表记录，并先清理项目授权关系，避免残留无效权限数据。
+     *
+     * @param username 登录账号
+     */
+    public void deleteUser(String username) {
+        Long userId = findUserId(username);
+        // 删除用户前先清理授权关系，避免留下孤立的项目权限数据。
+        jdbcTemplate.update("DELETE FROM ops_user_project_permission WHERE user_id = ?", userId);
+        jdbcTemplate.update("DELETE FROM sys_user WHERE id = ?", userId);
     }
 
     public void replaceUserProjects(String username, Collection<String> projectCodes) {
@@ -302,4 +360,3 @@ public class OpsConsoleRepository {
         };
     }
 }
-

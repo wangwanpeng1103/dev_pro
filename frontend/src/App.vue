@@ -210,9 +210,9 @@ function nextUserPage() {
 
         <div v-if="currentView === 'admin'" class="content-area admin-grid project-content">
           <section v-if="activeAdminFeature === 'user-list'" class="panel user-list-panel">
-            <div class="section-title">
+            <div class="section-title user-list-header">
               <h3>用户列表</h3>
-              <p>展示除 admin 外的所有用户，后续新增用户管理动作时在此页扩展。</p>
+              <button class="primary-button add-user-button" type="button">新增用户</button>
             </div>
             <div class="user-table">
               <div class="user-table-head">

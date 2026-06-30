@@ -512,6 +512,18 @@ input {
 .user-list-panel {
   display: grid;
   gap: 18px;
+  min-height: calc(100vh - 150px);
+  align-content: start;
+}
+
+.user-list-header {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+
+.add-user-button {
+  min-width: 128px;
+  padding: 0 18px;
 }
 
 .user-table {

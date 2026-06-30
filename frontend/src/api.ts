@@ -46,6 +46,19 @@ export interface LoginResult {
   projects: ProjectModule[]
 }
 
+export interface UserRequest {
+  username: string
+  displayName: string
+  validHours?: number | null
+  projectCodes: string[]
+}
+
+export interface PermanentUserUpdateRequest {
+  displayName: string
+  enabled: boolean
+  projectCodes: string[]
+}
+
 export interface HealthStatus {
   status: string
   time: string
@@ -97,6 +110,30 @@ export function login(username: string, password: string): Promise<LoginResult> 
 
 export function listUsers(): Promise<UserAccount[]> {
   return request<UserAccount[]>('/api/ops-console/users')
+}
+
+export function listPermanentUsers(): Promise<UserAccount[]> {
+  return request<UserAccount[]>('/api/ops-console/users/permanent')
+}
+
+export function createPermanentUser(payload: UserRequest): Promise<UserAccount> {
+  return request<UserAccount>('/api/ops-console/users/permanent', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updatePermanentUser(username: string, payload: PermanentUserUpdateRequest): Promise<UserAccount> {
+  return request<UserAccount>(`/api/ops-console/users/permanent/${encodeURIComponent(username)}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function deletePermanentUser(username: string): Promise<void> {
+  return request<void>(`/api/ops-console/users/permanent/${encodeURIComponent(username)}`, {
+    method: 'DELETE'
+  })
 }
 
 export function listProjects(username?: string): Promise<ProjectModule[]> {
