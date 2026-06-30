@@ -127,7 +127,7 @@ export function login(username: string, password: string): Promise<LoginResult> 
   })
 }
 
-export function listUsers(page = 1, pageSize = 8): Promise<PageResult<UserAccount>> {
+export function listUsers(page = 1, pageSize = 10): Promise<PageResult<UserAccount>> {
   const query = new URLSearchParams({
     page: String(page),
     pageSize: String(pageSize)
@@ -155,27 +155,27 @@ export function createTemporaryUser(payload: UserRequest): Promise<UserAccount> 
 
 export function updateUser(username: string, payload: UserUpdateRequest): Promise<UserAccount> {
   return request<UserAccount>(`/api/ops-console/users/${encodeURIComponent(username)}`, {
-    method: 'PUT',
+    method: 'POST',
     body: JSON.stringify(payload)
   })
 }
 
 export function updatePermanentUser(username: string, payload: PermanentUserUpdateRequest): Promise<UserAccount> {
   return request<UserAccount>(`/api/ops-console/users/permanent/${encodeURIComponent(username)}`, {
-    method: 'PUT',
+    method: 'POST',
     body: JSON.stringify(payload)
   })
 }
 
 export function deletePermanentUser(username: string): Promise<void> {
-  return request<void>(`/api/ops-console/users/permanent/${encodeURIComponent(username)}`, {
-    method: 'DELETE'
+  return request<void>(`/api/ops-console/users/permanent/${encodeURIComponent(username)}/delete`, {
+    method: 'POST'
   })
 }
 
 export function deleteUser(username: string): Promise<void> {
-  return request<void>(`/api/ops-console/users/${encodeURIComponent(username)}`, {
-    method: 'DELETE'
+  return request<void>(`/api/ops-console/users/${encodeURIComponent(username)}/delete`, {
+    method: 'POST'
   })
 }
 
@@ -186,7 +186,7 @@ export function updateUserPassword(
 ): Promise<void> {
   const query = `?operatorUsername=${encodeURIComponent(operatorUsername)}`
   return request<void>(`/api/ops-console/users/${encodeURIComponent(username)}/password${query}`, {
-    method: 'PUT',
+    method: 'POST',
     body: JSON.stringify(payload)
   })
 }

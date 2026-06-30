@@ -481,7 +481,7 @@
 - 用户列表行内操作按钮使用较小尺寸，避免操作区过重。
 - 用户列表中用户名展示列和账号均使用普通字重。
 - 用户列表第一列表头以及新增、修改用户弹窗中的“显示名称”文案统一改为“用户名”，仅调整前端展示文案，不改变后端 `displayName` 字段。
-- 用户列表接口改为后端分页：`GET /api/ops-console/users?page=1&pageSize=8` 返回当前页记录、总条数、当前页、每页条数和总页数。
+- 用户列表接口改为后端分页：`GET /api/ops-console/users?page=1&pageSize=10` 返回当前页记录、总条数、当前页、每页条数和总页数。
 - 前端用户列表翻页时重新请求后端分页接口，不再一次性拉取全量用户后在前端 slice 分页。
 - 数据库 seed 新增 50 个模拟永久用户 `demo-user-001` 至 `demo-user-050`，默认密码为 `1234`，用于观察用户列表分页显示效果。
 - 用户列表删除按钮需要可用：点击后弹出删除确认框，确认后调用通用删除接口，并清理用户项目授权关系。
@@ -538,3 +538,23 @@
 - 后续新增或改造 Java 普通对象时，默认使用 Lombok，避免继续手写重复 getter、setter。
 - 对存在继承、集合字段、业务行为或 `equals/hashCode` 风险的对象，不默认使用 `@Data`，优先使用 `@Getter`、`@Setter` 等精确注解。
 - 本次改造不改变接口字段、数据库字段映射和业务行为，仅减少 Java 对象样板代码。
+
+## 2026-06-30 分页默认值与接口 Mapping 安全约定调整
+
+### 需求来源
+
+用户要求分页默认值调整为 10，并出于安全考虑，项目后续除 `GetMapping` 和 `PostMapping` 外，其余方法级 Mapping 都改为 `PostMapping`，同时将该约定记录到 `AGENTS.md`。
+
+### 变更摘要
+
+- 用户列表分页默认每页条数从 8 调整为 10，后端 `pageSize` 默认值和前端调用默认值保持一致。
+- 当前后端 Controller 中已有 `PutMapping`、`DeleteMapping` 全部调整为 `PostMapping`。
+- 删除类接口改为 POST 调用并追加 `/delete` 路径后缀，避免与同资源路径下的修改接口发生 POST 路由冲突。
+- 前端 API 封装同步把修改、删除、修改密码等调用改为 `POST`。
+- `AGENTS.md` 新增接口 Mapping 安全约定：查询类接口可使用 `@GetMapping`，会改变服务端状态的接口统一使用 `@PostMapping`；不再新增 `@PutMapping`、`@DeleteMapping`、`@PatchMapping` 等其它方法级 Mapping。
+
+### 影响范围
+
+- 用户管理列表默认每页展示 10 条数据。
+- 后续新增后端 Controller 方法时，应优先按 GET 查询、POST 变更的方式设计接口。
+- 如历史文档或外部调用方仍引用 PUT/DELETE 接口，需要同步改为 POST 新路径。

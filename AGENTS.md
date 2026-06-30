@@ -51,6 +51,8 @@ Vue 组件使用 `PascalCase` 命名，组合式 API 优先使用 `<script setup
 
 禁止输出或提交敏感信息，包括密码、令牌、完整手机号、身份证号、数据库连接凭据和生产环境配置。数据库连接信息只写入本地 `.env`，不要提交。
 
+后续新增或调整后端 Controller 接口时，方法级路由注解默认只允许使用 `@GetMapping` 和 `@PostMapping`。查询类接口可使用 `@GetMapping`；新增、修改、删除、批量操作、状态变更等会改变服务端状态的接口统一使用 `@PostMapping`，不再新增 `@PutMapping`、`@DeleteMapping`、`@PatchMapping` 等其它方法级 Mapping。类级路径前缀可继续使用 `@RequestMapping`。
+
 ## MySQL 与 ORM 规范
 
 数据库版本目标为 MySQL 8.4 LTS。表、字段、索引和 SQL 必须遵循手册 MySQL 规约：字段含义明确，类型选择匹配业务，索引服务查询场景，避免无条件全表扫描。

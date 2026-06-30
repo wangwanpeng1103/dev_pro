@@ -15,11 +15,9 @@ import com.devpro.opsconsole.model.UserAccount;
 import com.devpro.opsconsole.service.OpsConsoleService;
 import jakarta.validation.Valid;
 import java.util.List;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -42,13 +40,13 @@ public class OpsConsoleController {
      * 分页查询所有用户（含临时用户），用于用户管理列表展示。
      *
      * @param page     页码，从 1 开始，默认值为 1
-     * @param pageSize 每页条数，默认值为 8
+     * @param pageSize 每页条数，默认值为 10
      * @return 分页用户列表
      */
     @GetMapping("/users")
     public ApiResponse<PageResult<UserAccount>> listUsers(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "8") int pageSize
+            @RequestParam(defaultValue = "10") int pageSize
     ) {
         return ApiResponse.success(opsConsoleService.listUsers(page, pageSize));
     }
@@ -61,7 +59,7 @@ public class OpsConsoleController {
      * @param request 密码修改请求
      * @return 空响应
      */
-    @PutMapping("/users/{username}/password")
+    @PostMapping("/users/{username}/password")
     public ApiResponse<Void> updateUserPassword(
             @PathVariable String username,
             @RequestParam String operatorUsername,
@@ -88,7 +86,7 @@ public class OpsConsoleController {
      * @param request 用户修改请求
      * @return 修改后的用户信息
      */
-    @PutMapping("/users/{username}")
+    @PostMapping("/users/{username}")
     public ApiResponse<UserAccount> updateUser(
             @PathVariable String username,
             @Valid @RequestBody UserUpdateRequest request
@@ -102,7 +100,7 @@ public class OpsConsoleController {
      * @param username 登录账号
      * @return 空响应
      */
-    @DeleteMapping("/users/{username}")
+    @PostMapping("/users/{username}/delete")
     public ApiResponse<Void> deleteUser(@PathVariable String username) {
         opsConsoleService.deleteUser(username);
         return ApiResponse.success(null);
@@ -126,7 +124,7 @@ public class OpsConsoleController {
      * @param request 永久用户修改请求
      * @return 修改后的用户信息
      */
-    @PutMapping("/users/permanent/{username}")
+    @PostMapping("/users/permanent/{username}")
     public ApiResponse<UserAccount> updatePermanentUser(
             @PathVariable String username,
             @Valid @RequestBody PermanentUserUpdateRequest request
@@ -140,7 +138,7 @@ public class OpsConsoleController {
      * @param username 登录账号
      * @return 空响应
      */
-    @DeleteMapping("/users/permanent/{username}")
+    @PostMapping("/users/permanent/{username}/delete")
     public ApiResponse<Void> deletePermanentUser(@PathVariable String username) {
         opsConsoleService.deletePermanentUser(username);
         return ApiResponse.success(null);
@@ -164,7 +162,7 @@ public class OpsConsoleController {
      * @param request  项目授权请求，包含需授权的项目编号列表
      * @return 更新后的用户信息
      */
-    @PutMapping("/users/{username}/projects")
+    @PostMapping("/users/{username}/projects")
     public ApiResponse<UserAccount> updateUserProjects(
             @PathVariable String username,
             @RequestBody ProjectPermissionRequest request
