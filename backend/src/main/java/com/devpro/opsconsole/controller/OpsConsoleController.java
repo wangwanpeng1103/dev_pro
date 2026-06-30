@@ -1,6 +1,7 @@
 package com.devpro.opsconsole.controller;
 
 import com.devpro.common.ApiResponse;
+import com.devpro.common.PageResult;
 import com.devpro.opsconsole.dto.FunctionNodeRequest;
 import com.devpro.opsconsole.dto.PermanentUserUpdateRequest;
 import com.devpro.opsconsole.dto.ProjectPermissionRequest;
@@ -38,8 +39,11 @@ public class OpsConsoleController {
     }
 
     @GetMapping("/users")
-    public ApiResponse<List<UserAccount>> listUsers() {
-        return ApiResponse.success(opsConsoleService.listUsers());
+    public ApiResponse<PageResult<UserAccount>> listUsers(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "8") int pageSize
+    ) {
+        return ApiResponse.success(opsConsoleService.listUsers(page, pageSize));
     }
 
     /**

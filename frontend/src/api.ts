@@ -17,6 +17,14 @@ export interface UserAccount {
   projectCodes: string[]
 }
 
+export interface PageResult<T> {
+  records: T[]
+  total: number
+  current: number
+  size: number
+  pages: number
+}
+
 export interface FunctionNode {
   id: number
   parentId: number | null
@@ -119,8 +127,12 @@ export function login(username: string, password: string): Promise<LoginResult> 
   })
 }
 
-export function listUsers(): Promise<UserAccount[]> {
-  return request<UserAccount[]>('/api/ops-console/users')
+export function listUsers(page = 1, pageSize = 8): Promise<PageResult<UserAccount>> {
+  const query = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize)
+  })
+  return request<PageResult<UserAccount>>(`/api/ops-console/users?${query.toString()}`)
 }
 
 export function listPermanentUsers(): Promise<UserAccount[]> {

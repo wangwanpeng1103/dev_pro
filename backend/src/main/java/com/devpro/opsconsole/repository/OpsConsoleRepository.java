@@ -2,6 +2,8 @@ package com.devpro.opsconsole.repository;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.devpro.common.PageResult;
 import com.devpro.opsconsole.entity.OpsFunctionNodeEntity;
 import com.devpro.opsconsole.entity.OpsProjectEntity;
 import com.devpro.opsconsole.entity.OpsUserProjectPermissionEntity;
@@ -76,6 +78,32 @@ public class OpsConsoleRepository {
                 .toList();
         users.forEach(this::loadProjectCodes);
         return users;
+    }
+
+    /**
+     * 分页查询用户列表，并保持 admin 账号固定排在第一页首位。
+     *
+     * @param page 当前页码，从 1 开始
+     * @param pageSize 每页条数
+     * @return 用户分页结果
+     */
+    public PageResult<UserAccount> findUsersPage(int page, int pageSize) {
+        Page<SysUserEntity> entityPage = sysUserMapper.selectPage(
+                Page.of(page, pageSize),
+                new LambdaQueryWrapper<SysUserEntity>()
+                        .last("ORDER BY CASE WHEN username = 'admin' THEN 0 ELSE 1 END, id")
+        );
+        List<UserAccount> users = entityPage.getRecords().stream()
+                .map(this::toUserAccount)
+                .toList();
+        users.forEach(this::loadProjectCodes);
+        return new PageResult<>(
+                users,
+                entityPage.getTotal(),
+                entityPage.getCurrent(),
+                entityPage.getSize(),
+                entityPage.getPages()
+        );
     }
 
     /**

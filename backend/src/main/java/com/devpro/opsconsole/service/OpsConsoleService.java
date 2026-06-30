@@ -1,5 +1,6 @@
 package com.devpro.opsconsole.service;
 
+import com.devpro.common.PageResult;
 import com.devpro.opsconsole.dto.FunctionNodeRequest;
 import com.devpro.opsconsole.dto.PermanentUserUpdateRequest;
 import com.devpro.opsconsole.dto.ProjectPermissionRequest;
@@ -51,8 +52,17 @@ public class OpsConsoleService {
         return userAccount;
     }
 
-    public List<UserAccount> listUsers() {
-        return opsConsoleRepository.findAllUsers();
+    /**
+     * 分页查询用户列表，列表中 admin 仍保持第一位，供用户管理页面翻页展示。
+     *
+     * @param page 当前页码，从 1 开始
+     * @param pageSize 每页条数
+     * @return 用户分页结果
+     */
+    public PageResult<UserAccount> listUsers(int page, int pageSize) {
+        int safePage = Math.max(1, page);
+        int safePageSize = Math.min(Math.max(1, pageSize), 100);
+        return opsConsoleRepository.findUsersPage(safePage, safePageSize);
     }
 
     /**

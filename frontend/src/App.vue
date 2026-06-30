@@ -31,6 +31,8 @@ const selectedProject = ref<ProjectModule | null>(null)
 const activeAdminFeature = ref<AdminFeature>('user-list')
 const userPage = ref(1)
 const userPageSize = 8
+const userTotal = ref(0)
+const userTotalPages = ref(1)
 const userDialogMode = ref<UserDialogMode>('create')
 const userDialogVisible = ref(false)
 const passwordDialogVisible = ref(false)
@@ -52,20 +54,8 @@ const passwordForm = ref({
 const isAdmin = computed(() => currentUser.value?.userType === 'ADMIN')
 const visibleProjects = computed(() => projects.value.filter((project) => project.enabled))
 const assignableProjects = computed(() => visibleProjects.value.filter((project) => project.code !== 'user-admin'))
-const managedUsers = computed(() => [...users.value].sort((left, right) => {
-  if (left.username === 'admin') {
-    return -1
-  }
-  if (right.username === 'admin') {
-    return 1
-  }
-  return left.id - right.id
-}))
-const totalUserPages = computed(() => Math.max(1, Math.ceil(managedUsers.value.length / userPageSize)))
-const pagedUsers = computed(() => {
-  const start = (userPage.value - 1) * userPageSize
-  return managedUsers.value.slice(start, start + userPageSize)
-})
+const totalUserPages = computed(() => Math.max(1, userTotalPages.value))
+const pagedUsers = computed(() => users.value)
 const pageTitle = computed(() => {
   if (currentView.value === 'projects') {
     return '项目模块'
@@ -92,16 +82,26 @@ async function handleLogin() {
 }
 
 async function refreshAdminData() {
-  users.value = await listUsers()
-  projects.value = await listProjects(currentUser.value?.username)
+  const [userPageResult, projectResult] = await Promise.all([
+    listUsers(userPage.value, userPageSize),
+    listProjects(currentUser.value?.username)
+  ])
+  users.value = userPageResult.records
+  userTotal.value = userPageResult.total
+  userTotalPages.value = Math.max(1, userPageResult.pages)
+  projects.value = projectResult
+  if (userPage.value > totalUserPages.value) {
+    userPage.value = totalUserPages.value
+    await refreshAdminData()
+  }
 }
 
 async function openProject(project: ProjectModule) {
   selectedProject.value = project
   if (project.code === 'user-admin') {
-    await refreshAdminData()
     activeAdminFeature.value = 'user-list'
     userPage.value = 1
+    await refreshAdminData()
   }
   currentView.value = project.code === 'user-admin' ? 'admin' : 'project'
 }
@@ -277,12 +277,20 @@ async function submitPasswordForm() {
   }
 }
 
-function previousUserPage() {
-  userPage.value = Math.max(1, userPage.value - 1)
+async function previousUserPage() {
+  if (userPage.value <= 1) {
+    return
+  }
+  userPage.value -= 1
+  await refreshAdminData()
 }
 
-function nextUserPage() {
-  userPage.value = Math.min(totalUserPages.value, userPage.value + 1)
+async function nextUserPage() {
+  if (userPage.value >= totalUserPages.value) {
+    return
+  }
+  userPage.value += 1
+  await refreshAdminData()
 }
 </script>
 
@@ -397,7 +405,7 @@ function nextUserPage() {
             </div>
             <div class="user-table">
               <div class="user-table-head">
-                <span>显示名称</span>
+                <span>用户名</span>
                 <span>账号</span>
                 <span>用户类型</span>
                 <span>状态</span>
@@ -433,7 +441,7 @@ function nextUserPage() {
               <div v-if="pagedUsers.length === 0" class="empty-state">暂无用户</div>
             </div>
             <div class="pagination-bar">
-              <span>共 {{ managedUsers.length }} 条</span>
+              <span>共 {{ userTotal }} 条</span>
               <div>
                 <button class="ghost-button" :disabled="userPage === 1" @click="previousUserPage">上一页</button>
                 <span>{{ userPage }} / {{ totalUserPages }}</span>
@@ -464,7 +472,7 @@ function nextUserPage() {
             <input v-model.trim="userForm.username" :disabled="userDialogMode === 'edit'" autocomplete="off" required />
           </label>
           <label>
-            显示名称
+            用户名
             <input v-model.trim="userForm.displayName" autocomplete="off" required />
           </label>
           <label>
