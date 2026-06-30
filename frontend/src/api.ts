@@ -49,7 +49,14 @@ export interface LoginResult {
 export interface UserRequest {
   username: string
   displayName: string
+  enabled?: boolean
   validHours?: number | null
+  projectCodes: string[]
+}
+
+export interface UserUpdateRequest {
+  displayName: string
+  enabled: boolean
   projectCodes: string[]
 }
 
@@ -57,6 +64,10 @@ export interface PermanentUserUpdateRequest {
   displayName: string
   enabled: boolean
   projectCodes: string[]
+}
+
+export interface UserPasswordUpdateRequest {
+  newPassword: string
 }
 
 export interface HealthStatus {
@@ -123,6 +134,20 @@ export function createPermanentUser(payload: UserRequest): Promise<UserAccount> 
   })
 }
 
+export function createTemporaryUser(payload: UserRequest): Promise<UserAccount> {
+  return request<UserAccount>('/api/ops-console/users/temporary', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateUser(username: string, payload: UserUpdateRequest): Promise<UserAccount> {
+  return request<UserAccount>(`/api/ops-console/users/${encodeURIComponent(username)}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  })
+}
+
 export function updatePermanentUser(username: string, payload: PermanentUserUpdateRequest): Promise<UserAccount> {
   return request<UserAccount>(`/api/ops-console/users/permanent/${encodeURIComponent(username)}`, {
     method: 'PUT',
@@ -133,6 +158,24 @@ export function updatePermanentUser(username: string, payload: PermanentUserUpda
 export function deletePermanentUser(username: string): Promise<void> {
   return request<void>(`/api/ops-console/users/permanent/${encodeURIComponent(username)}`, {
     method: 'DELETE'
+  })
+}
+
+export function deleteUser(username: string): Promise<void> {
+  return request<void>(`/api/ops-console/users/${encodeURIComponent(username)}`, {
+    method: 'DELETE'
+  })
+}
+
+export function updateUserPassword(
+  username: string,
+  operatorUsername: string,
+  payload: UserPasswordUpdateRequest
+): Promise<void> {
+  const query = `?operatorUsername=${encodeURIComponent(operatorUsername)}`
+  return request<void>(`/api/ops-console/users/${encodeURIComponent(username)}/password${query}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
   })
 }
 

@@ -55,6 +55,8 @@ Vue 组件使用 `PascalCase` 命名，组合式 API 优先使用 `<script setup
 
 数据库版本目标为 MySQL 8.4 LTS。表、字段、索引和 SQL 必须遵循手册 MySQL 规约：字段含义明确，类型选择匹配业务，索引服务查询场景，避免无条件全表扫描。
 
+后续后端数据库访问统一使用 MyBatis-Plus，不再新增 `JdbcTemplate` 或手写 JDBC DAO。简单单表或条件查询优先使用 MyBatis-Plus 的 `LambdaQueryWrapper`、`LambdaUpdateWrapper`、`BaseMapper` 等类型安全 API；遇到多表关联、复杂动态 SQL、批量统计、复杂排序分页或需要精细调优的 SQL，统一放到 MyBatis XML Mapper 中实现。除非用户明确提出特殊要求，后续所有 SQL 和 ORM 代码都按此约定编写。
+
 后续只要新增建表语句、表结构变更、索引调整或初始化数据脚本，都默认放到 `database/` 目录。建议按用途拆分为 `database/schema/`、`database/seed/`、`database/migration/`，脚本命名包含日期、序号和业务含义，例如 `20260629_001_create_user_table.sql`。
 
 需要测试或使用 MySQL 连接时，优先使用 `D:\dev\mysql-shell-9.7.0\bin\mysqlsh.exe`，并采用安全密码输入方式。
@@ -86,3 +88,9 @@ Vue 组件使用 `PascalCase` 命名，组合式 API 优先使用 `<script setup
 - `Document local setup`
 
 PR 应包含变更摘要、验证命令、关联 issue 或需求编号。涉及 UI 请附截图或录屏；涉及配置、权限、数据库或批量数据变更时，必须说明安全影响和回滚方案。
+
+## Lombok 使用规范
+
+本项目后端统一启用 Lombok 作为 Java 对象样板代码工具。实体类、领域模型、DTO/VO 等普通对象需要优先使用 Lombok 的 `@Getter`、`@Setter`、`@NoArgsConstructor`、`@AllArgsConstructor`、`@Builder` 等注解减少重复 getter、setter、构造器和构建代码。
+
+使用 Lombok 时应按对象语义选择注解：有继承、集合字段、业务方法或 `equals/hashCode` 风险的对象，不默认使用 `@Data`；优先使用更精确的 `@Getter`、`@Setter`。Java `record` 已具备简洁不可变数据载体能力时，可以保留 `record`，不强行改为 Lombok 类。后续新增或改造 Java 对象时，除非用户有特殊要求，默认遵循本约定。

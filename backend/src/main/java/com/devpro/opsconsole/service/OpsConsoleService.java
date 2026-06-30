@@ -4,7 +4,9 @@ import com.devpro.opsconsole.dto.FunctionNodeRequest;
 import com.devpro.opsconsole.dto.PermanentUserUpdateRequest;
 import com.devpro.opsconsole.dto.ProjectPermissionRequest;
 import com.devpro.opsconsole.dto.ProjectRequest;
+import com.devpro.opsconsole.dto.UserPasswordUpdateRequest;
 import com.devpro.opsconsole.dto.UserRequest;
+import com.devpro.opsconsole.dto.UserUpdateRequest;
 import com.devpro.opsconsole.model.FunctionNode;
 import com.devpro.opsconsole.model.ProjectModule;
 import com.devpro.opsconsole.model.UserAccount;
@@ -54,6 +56,19 @@ public class OpsConsoleService {
     }
 
     /**
+     * 管理员修改任意账号密码。当前项目尚未接入会话鉴权，暂通过操作人账号校验管理员身份。
+     *
+     * @param operatorUsername 操作人登录账号
+     * @param targetUsername 被修改密码的登录账号
+     * @param request 密码修改请求
+     */
+    @Transactional
+    public void updateUserPassword(String operatorUsername, String targetUsername, UserPasswordUpdateRequest request) {
+        ensureAdminUser(operatorUsername);
+        opsConsoleRepository.updateUserPassword(targetUsername, buildPasswordHash(request.newPassword()));
+    }
+
+    /**
      * 查询永久用户列表，用于用户管理模块的永久账号维护。
      *
      * @return 永久用户列表
@@ -63,7 +78,7 @@ public class OpsConsoleService {
     }
 
     /**
-     * 创建永久用户。当前阶段默认密码按用户名生成，后续接入密码策略后需要替换这里。
+     * 创建永久用户。当前阶段新增账号默认密码统一为 1234，后续接入密码策略后需要替换这里。
      *
      * @param request 创建请求
      * @return 新创建的永久用户
@@ -74,11 +89,31 @@ public class OpsConsoleService {
         return opsConsoleRepository.insertUser(
                 request.username(),
                 request.displayName(),
-                buildDefaultPasswordHash(request.username()),
+                buildDefaultPasswordHash(),
                 UserType.PERMANENT,
+                request.enabled() == null || request.enabled(),
                 null,
-                safeProjectCodes(request.projectCodes())
+                assignableProjectCodes(request.projectCodes())
         );
+    }
+
+    /**
+     * 修改非管理员用户基础信息和项目授权，用户类型和账号不允许在修改时变更。
+     *
+     * @param username 被修改的登录账号
+     * @param request 修改请求
+     * @return 修改后的用户信息
+     */
+    @Transactional
+    public UserAccount updateUser(String username, UserUpdateRequest request) {
+        opsConsoleRepository.updateUser(
+                username,
+                request.displayName(),
+                request.enabled() == null || request.enabled(),
+                assignableProjectCodes(request.projectCodes())
+        );
+        return opsConsoleRepository.findUserByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
     }
 
     /**
@@ -95,7 +130,7 @@ public class OpsConsoleService {
                 username,
                 request.displayName(),
                 request.enabled() == null || request.enabled(),
-                safeProjectCodes(request.projectCodes())
+                assignableProjectCodes(request.projectCodes())
         );
         return opsConsoleRepository.findUserByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
@@ -113,6 +148,21 @@ public class OpsConsoleService {
     }
 
     /**
+     * 删除非管理员用户及其项目授权关系。admin 是系统内置管理员账号，不允许通过列表删除。
+     *
+     * @param username 被删除的登录账号
+     */
+    @Transactional
+    public void deleteUser(String username) {
+        UserAccount userAccount = opsConsoleRepository.findUserByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
+        if (userAccount.getUserType() == UserType.ADMIN) {
+            throw new IllegalArgumentException("不能删除管理员账号");
+        }
+        opsConsoleRepository.deleteUser(username);
+    }
+
+    /**
      * 创建临时用户，并根据有效小时数计算过期时间。
      *
      * @param request 创建请求
@@ -121,14 +171,15 @@ public class OpsConsoleService {
     @Transactional
     public UserAccount createTemporaryUser(UserRequest request) {
         ensureUsernameNotExists(request.username());
-        int validHours = request.validHours() == null ? 24 : request.validHours();
+        int validHours = validTemporaryHours(request.validHours());
         return opsConsoleRepository.insertUser(
                 request.username(),
                 request.displayName(),
-                buildDefaultPasswordHash(request.username()),
+                buildDefaultPasswordHash(),
                 UserType.TEMPORARY,
+                request.enabled() == null || request.enabled(),
                 LocalDateTime.now().plusHours(validHours),
-                safeProjectCodes(request.projectCodes())
+                assignableProjectCodes(request.projectCodes())
         );
     }
 
@@ -141,7 +192,7 @@ public class OpsConsoleService {
      */
     @Transactional
     public UserAccount updateUserProjects(String username, ProjectPermissionRequest request) {
-        opsConsoleRepository.replaceUserProjects(username, safeProjectCodes(request.projectCodes()));
+        opsConsoleRepository.replaceUserProjects(username, assignableProjectCodes(request.projectCodes()));
         return opsConsoleRepository.findUserByUsername(username)
                 .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
     }
@@ -192,8 +243,23 @@ public class OpsConsoleService {
         return false;
     }
 
-    private String buildDefaultPasswordHash(String username) {
-        return "{noop}" + username;
+    private String buildDefaultPasswordHash() {
+        return buildPasswordHash("1234");
+    }
+
+    private String buildPasswordHash(String rawPassword) {
+        return "{noop}" + rawPassword;
+    }
+
+    /**
+     * 校验操作人必须是管理员，避免普通用户调用管理接口修改他人密码。
+     */
+    private void ensureAdminUser(String username) {
+        UserAccount userAccount = opsConsoleRepository.findUserByUsername(username)
+                .orElseThrow(() -> new IllegalArgumentException("操作人不存在"));
+        if (userAccount.getUserType() != UserType.ADMIN) {
+            throw new IllegalArgumentException("只有管理员可以修改用户密码");
+        }
     }
 
     /**
@@ -218,5 +284,24 @@ public class OpsConsoleService {
 
     private List<String> safeProjectCodes(List<String> projectCodes) {
         return CollectionUtils.isEmpty(projectCodes) ? List.of() : projectCodes;
+    }
+
+    /**
+     * 临时用户有效期必须由前端明确传入正整数小时数，用于叠加当前时间计算过期时间。
+     */
+    private int validTemporaryHours(Integer validHours) {
+        if (validHours == null || validHours <= 0) {
+            throw new IllegalArgumentException("临时用户可用时间必须是正整数小时");
+        }
+        return validHours;
+    }
+
+    /**
+     * 普通账号不能被分配用户管理入口，该入口当前仅由 admin 管理员账号独有。
+     */
+    private List<String> assignableProjectCodes(List<String> projectCodes) {
+        return safeProjectCodes(projectCodes).stream()
+                .filter(projectCode -> !"user-admin".equals(projectCode))
+                .toList();
     }
 }

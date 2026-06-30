@@ -1,20 +1,28 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import {
+  createPermanentUser,
+  createTemporaryUser,
+  deleteUser,
   listProjects,
   listUsers,
   login,
+  updateUser,
+  updateUserPassword,
   type ProjectModule,
+  type UserType,
   type UserAccount
 } from './api'
 
 type ViewName = 'login' | 'projects' | 'admin' | 'project'
 type AdminFeature = 'user-list'
+type UserDialogMode = 'create' | 'edit'
 
 const currentView = ref<ViewName>('login')
 const username = ref('admin')
 const password = ref('admin')
 const errorMessage = ref('')
+const successMessage = ref('')
 const loading = ref(false)
 const currentUser = ref<UserAccount | null>(null)
 const projects = ref<ProjectModule[]>([])
@@ -23,10 +31,36 @@ const selectedProject = ref<ProjectModule | null>(null)
 const activeAdminFeature = ref<AdminFeature>('user-list')
 const userPage = ref(1)
 const userPageSize = 8
+const userDialogMode = ref<UserDialogMode>('create')
+const userDialogVisible = ref(false)
+const passwordDialogVisible = ref(false)
+const deleteDialogVisible = ref(false)
+const selectedUser = ref<UserAccount | null>(null)
+const formSaving = ref(false)
+const userForm = ref({
+  username: '',
+  displayName: '',
+  userType: 'PERMANENT' as Exclude<UserType, 'ADMIN'>,
+  enabled: true,
+  validHours: 24,
+  projectCodes: [] as string[]
+})
+const passwordForm = ref({
+  password: ''
+})
 
 const isAdmin = computed(() => currentUser.value?.userType === 'ADMIN')
 const visibleProjects = computed(() => projects.value.filter((project) => project.enabled))
-const managedUsers = computed(() => users.value.filter((user) => user.username !== 'admin'))
+const assignableProjects = computed(() => visibleProjects.value.filter((project) => project.code !== 'user-admin'))
+const managedUsers = computed(() => [...users.value].sort((left, right) => {
+  if (left.username === 'admin') {
+    return -1
+  }
+  if (right.username === 'admin') {
+    return 1
+  }
+  return left.id - right.id
+}))
 const totalUserPages = computed(() => Math.max(1, Math.ceil(managedUsers.value.length / userPageSize)))
 const pagedUsers = computed(() => {
   const start = (userPage.value - 1) * userPageSize
@@ -87,6 +121,10 @@ function closeErrorDialog() {
   errorMessage.value = ''
 }
 
+function closeSuccessDialog() {
+  successMessage.value = ''
+}
+
 function displayUserType(userType: UserAccount['userType']) {
   const labelMap: Record<UserAccount['userType'], string> = {
     ADMIN: '管理员',
@@ -94,6 +132,149 @@ function displayUserType(userType: UserAccount['userType']) {
     TEMPORARY: '临时用户'
   }
   return labelMap[userType]
+}
+
+function isCurrentUserRow(user: UserAccount) {
+  return user.username === currentUser.value?.username
+}
+
+function openCreateUserDialog() {
+  userDialogMode.value = 'create'
+  selectedUser.value = null
+  userForm.value = {
+    username: '',
+    displayName: '',
+    userType: 'PERMANENT',
+    enabled: true,
+    validHours: 24,
+    projectCodes: []
+  }
+  userDialogVisible.value = true
+}
+
+function openEditUserDialog(user: UserAccount) {
+  userDialogMode.value = 'edit'
+  selectedUser.value = user
+  userForm.value = {
+    username: user.username,
+    displayName: user.displayName,
+    userType: user.userType === 'TEMPORARY' ? 'TEMPORARY' : 'PERMANENT',
+    enabled: user.enabled,
+    validHours: 24,
+    projectCodes: [...user.projectCodes]
+  }
+  userDialogVisible.value = true
+}
+
+function closeUserDialog() {
+  if (formSaving.value) {
+    return
+  }
+  userDialogVisible.value = false
+}
+
+function openPasswordDialog(user: UserAccount) {
+  selectedUser.value = user
+  passwordForm.value = {
+    password: ''
+  }
+  passwordDialogVisible.value = true
+}
+
+function closePasswordDialog() {
+  if (formSaving.value) {
+    return
+  }
+  passwordDialogVisible.value = false
+}
+
+function openDeleteDialog(user: UserAccount) {
+  selectedUser.value = user
+  deleteDialogVisible.value = true
+}
+
+function closeDeleteDialog() {
+  if (formSaving.value) {
+    return
+  }
+  deleteDialogVisible.value = false
+}
+
+async function submitUserForm() {
+  formSaving.value = true
+  errorMessage.value = ''
+  try {
+    if (userDialogMode.value === 'create') {
+      const payload = {
+        username: userForm.value.username,
+        displayName: userForm.value.displayName,
+        enabled: userForm.value.enabled,
+        projectCodes: userForm.value.projectCodes
+      }
+      if (userForm.value.userType === 'TEMPORARY') {
+        if (!Number.isInteger(userForm.value.validHours) || userForm.value.validHours <= 0) {
+          throw new Error('临时用户可用时间必须是正整数小时')
+        }
+        await createTemporaryUser({
+          ...payload,
+          validHours: userForm.value.validHours
+        })
+      } else {
+        await createPermanentUser(payload)
+      }
+      successMessage.value = '用户新增成功'
+    } else if (selectedUser.value) {
+      await updateUser(selectedUser.value.username, {
+        displayName: userForm.value.displayName,
+        enabled: userForm.value.enabled,
+        projectCodes: userForm.value.projectCodes
+      })
+      successMessage.value = '用户信息修改成功'
+    }
+    userDialogVisible.value = false
+    await refreshAdminData()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '保存用户失败'
+  } finally {
+    formSaving.value = false
+  }
+}
+
+async function confirmDeleteUser() {
+  if (!selectedUser.value) {
+    return
+  }
+  formSaving.value = true
+  errorMessage.value = ''
+  try {
+    await deleteUser(selectedUser.value.username)
+    deleteDialogVisible.value = false
+    successMessage.value = '用户删除成功'
+    await refreshAdminData()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '删除用户失败'
+  } finally {
+    formSaving.value = false
+  }
+}
+
+async function submitPasswordForm() {
+  if (!selectedUser.value || !currentUser.value) {
+    return
+  }
+  formSaving.value = true
+  errorMessage.value = ''
+  try {
+    await updateUserPassword(selectedUser.value.username, currentUser.value.username, {
+      newPassword: passwordForm.value.password
+    })
+    passwordDialogVisible.value = false
+    successMessage.value = '密码修改成功'
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '修改密码失败'
+  } finally {
+    formSaving.value = false
+  }
 }
 
 function previousUserPage() {
@@ -212,7 +393,7 @@ function nextUserPage() {
           <section v-if="activeAdminFeature === 'user-list'" class="panel user-list-panel">
             <div class="section-title user-list-header">
               <h3>用户列表</h3>
-              <button class="primary-button add-user-button" type="button">新增用户</button>
+              <button class="primary-button add-user-button" type="button" @click="openCreateUserDialog">新增用户</button>
             </div>
             <div class="user-table">
               <div class="user-table-head">
@@ -221,13 +402,33 @@ function nextUserPage() {
                 <span>用户类型</span>
                 <span>状态</span>
                 <span>到期时间</span>
+                <span>操作</span>
               </div>
               <div v-for="user in pagedUsers" :key="user.username" class="user-table-row">
-                <strong>{{ user.displayName }}</strong>
+                <span>{{ user.displayName }}</span>
                 <span>{{ user.username }}</span>
                 <span>{{ displayUserType(user.userType) }}</span>
                 <span>{{ user.enabled ? '启用' : '禁用' }}</span>
                 <span>{{ user.expiresAt ?? '-' }}</span>
+                <div class="user-actions">
+                  <button
+                    v-if="!isCurrentUserRow(user)"
+                    class="ghost-button action-button"
+                    type="button"
+                    @click="openEditUserDialog(user)"
+                  >
+                    修改信息
+                  </button>
+                  <button class="ghost-button action-button" type="button" @click="openPasswordDialog(user)">修改密码</button>
+                  <button
+                    v-if="!isCurrentUserRow(user)"
+                    class="danger-button action-button"
+                    type="button"
+                    @click="openDeleteDialog(user)"
+                  >
+                    删除用户
+                  </button>
+                </div>
               </div>
               <div v-if="pagedUsers.length === 0" class="empty-state">暂无用户</div>
             </div>
@@ -249,5 +450,116 @@ function nextUserPage() {
         </section>
       </div>
     </section>
+
+    <div v-if="userDialogVisible" class="dialog-backdrop" role="presentation">
+      <form class="form-dialog user-form-dialog" @submit.prevent="submitUserForm">
+        <div class="dialog-header">
+          <h3>{{ userDialogMode === 'create' ? '新增用户' : '修改用户信息' }}</h3>
+          <button class="icon-close-button" type="button" aria-label="关闭" @click="closeUserDialog">×</button>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            账号 code
+            <input v-model.trim="userForm.username" :disabled="userDialogMode === 'edit'" autocomplete="off" required />
+          </label>
+          <label>
+            显示名称
+            <input v-model.trim="userForm.displayName" autocomplete="off" required />
+          </label>
+          <label>
+            用户类型
+            <select v-model="userForm.userType" :disabled="userDialogMode === 'edit'">
+              <option value="PERMANENT">永久用户</option>
+              <option value="TEMPORARY">临时用户</option>
+            </select>
+          </label>
+          <label>
+            状态
+            <select v-model="userForm.enabled">
+              <option :value="true">启用</option>
+              <option :value="false">禁用</option>
+            </select>
+          </label>
+          <label v-if="userDialogMode === 'create' && userForm.userType === 'TEMPORARY'">
+            可用时间（小时）
+            <input v-model.number="userForm.validHours" min="1" step="1" type="number" required />
+          </label>
+        </div>
+
+        <section class="project-picker">
+          <h4>授权项目</h4>
+          <label v-for="project in assignableProjects" :key="project.code" class="check-row">
+            <input v-model="userForm.projectCodes" type="checkbox" :value="project.code" />
+            <span>{{ project.name }}</span>
+            <small>{{ project.code }}</small>
+          </label>
+        </section>
+
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" @click="closeUserDialog">取消</button>
+          <button class="primary-button dialog-submit-button" type="submit" :disabled="formSaving">
+            {{ formSaving ? '保存中...' : '保存' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="passwordDialogVisible" class="dialog-backdrop" role="presentation">
+      <form class="form-dialog password-form-dialog" @submit.prevent="submitPasswordForm">
+        <div class="dialog-header">
+          <h3>修改密码</h3>
+          <button class="icon-close-button" type="button" aria-label="关闭" @click="closePasswordDialog">×</button>
+        </div>
+        <label class="inline-password-field">
+          密码：
+          <input v-model="passwordForm.password" autocomplete="new-password" type="password" required />
+        </label>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" @click="closePasswordDialog">取消</button>
+          <button class="primary-button dialog-submit-button" type="submit" :disabled="formSaving">
+            {{ formSaving ? '保存中...' : '保存' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="deleteDialogVisible" class="dialog-backdrop" role="presentation">
+      <section class="form-dialog password-form-dialog">
+        <div class="dialog-header">
+          <h3>删除用户</h3>
+          <button class="icon-close-button" type="button" aria-label="关闭" @click="closeDeleteDialog">×</button>
+        </div>
+        <p>确定删除用户 {{ selectedUser?.username }} 吗？删除后会同步清理该用户的项目授权。</p>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" @click="closeDeleteDialog">取消</button>
+          <button class="danger-button dialog-submit-button" type="button" :disabled="formSaving" @click="confirmDeleteUser">
+            {{ formSaving ? '删除中...' : '删除' }}
+          </button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="errorMessage && currentView !== 'login'" class="dialog-backdrop" role="presentation">
+      <section class="error-dialog" role="alertdialog" aria-modal="true" aria-labelledby="admin-error-dialog-title">
+        <div class="dialog-mark">!</div>
+        <div>
+          <h3 id="admin-error-dialog-title">操作失败</h3>
+          <p>{{ errorMessage }}</p>
+        </div>
+        <button class="primary-button dialog-button" type="button" @click="closeErrorDialog">确定</button>
+      </section>
+    </div>
+
+    <div v-if="successMessage" class="dialog-backdrop" role="presentation">
+      <section class="error-dialog success-dialog" role="status" aria-live="polite">
+        <div class="dialog-mark">✓</div>
+        <div>
+          <h3>操作成功</h3>
+          <p>{{ successMessage }}</p>
+        </div>
+        <button class="primary-button dialog-button" type="button" @click="closeSuccessDialog">确定</button>
+      </section>
+    </div>
   </main>
 </template>

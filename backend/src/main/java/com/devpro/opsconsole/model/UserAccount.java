@@ -3,10 +3,13 @@ package com.devpro.opsconsole.model;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
- * 运维控制台用户账号模型，当前阶段由内存数据承载，后续可映射到 sys_user 表。
+ * 运维控制台用户账号模型，用于承载登录状态、用户类型和项目授权。
  */
+@Getter
 public class UserAccount {
 
     private final Long id;
@@ -14,6 +17,7 @@ public class UserAccount {
     private final String displayName;
     private final UserType userType;
     private final LocalDateTime expiresAt;
+    @Setter
     private boolean enabled;
     private final Set<String> projectCodes = new LinkedHashSet<>();
 
@@ -26,38 +30,6 @@ public class UserAccount {
         this.enabled = true;
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public UserType getUserType() {
-        return userType;
-    }
-
-    public LocalDateTime getExpiresAt() {
-        return expiresAt;
-    }
-
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public Set<String> getProjectCodes() {
-        return projectCodes;
-    }
-
     /**
      * 判断用户当前是否允许登录，临时用户需要额外校验有效期。
      *
@@ -68,4 +40,3 @@ public class UserAccount {
         return enabled && (expiresAt == null || expiresAt.isAfter(now));
     }
 }
-
