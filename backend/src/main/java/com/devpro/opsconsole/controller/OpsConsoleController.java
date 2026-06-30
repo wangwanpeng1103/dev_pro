@@ -38,6 +38,13 @@ public class OpsConsoleController {
         this.opsConsoleService = opsConsoleService;
     }
 
+    /**
+     * 分页查询所有用户（含临时用户），用于用户管理列表展示。
+     *
+     * @param page     页码，从 1 开始，默认值为 1
+     * @param pageSize 每页条数，默认值为 8
+     * @return 分页用户列表
+     */
     @GetMapping("/users")
     public ApiResponse<PageResult<UserAccount>> listUsers(
             @RequestParam(defaultValue = "1") int page,
@@ -139,11 +146,24 @@ public class OpsConsoleController {
         return ApiResponse.success(null);
     }
 
+    /**
+     * 创建临时用户，用于短期访问授权，超过有效期后自动失效。
+     *
+     * @param request 临时用户创建请求，包含用户名、有效期等必要信息
+     * @return 新创建的临时用户信息
+     */
     @PostMapping("/users/temporary")
     public ApiResponse<UserAccount> createTemporaryUser(@Valid @RequestBody UserRequest request) {
         return ApiResponse.success(opsConsoleService.createTemporaryUser(request));
     }
 
+    /**
+     * 批量更新用户的项目授权关系，用于为用户分配或收回项目访问权限。
+     *
+     * @param username 需要修改授权的登录账号
+     * @param request  项目授权请求，包含需授权的项目编号列表
+     * @return 更新后的用户信息
+     */
     @PutMapping("/users/{username}/projects")
     public ApiResponse<UserAccount> updateUserProjects(
             @PathVariable String username,
@@ -152,6 +172,12 @@ public class OpsConsoleController {
         return ApiResponse.success(opsConsoleService.updateUserProjects(username, request));
     }
 
+    /**
+     * 查询项目列表，传入用户名时仅返回该用户有权限的项目，否则返回全部项目。
+     *
+     * @param username 可选参数，指定用户名则按用户权限过滤
+     * @return 项目列表
+     */
     @GetMapping("/projects")
     public ApiResponse<List<ProjectModule>> listProjects(@RequestParam(required = false) String username) {
         if (username == null || username.isBlank()) {
@@ -160,16 +186,35 @@ public class OpsConsoleController {
         return ApiResponse.success(opsConsoleService.listProjectsForUser(username));
     }
 
+    /**
+     * 创建新项目，同时初始化项目默认功能入口结构。
+     *
+     * @param request 项目创建请求，包含项目编号、名称等基本信息
+     * @return 新创建的项目信息
+     */
     @PostMapping("/projects")
     public ApiResponse<ProjectModule> createProject(@Valid @RequestBody ProjectRequest request) {
         return ApiResponse.success(opsConsoleService.createProject(request));
     }
 
+    /**
+     * 查询指定项目下所有功能入口节点，用于构建项目侧边栏导航菜单。
+     *
+     * @param projectCode 项目编号
+     * @return 功能节点树形列表
+     */
     @GetMapping("/projects/{projectCode}/functions")
     public ApiResponse<List<FunctionNode>> listFunctionNodes(@PathVariable String projectCode) {
         return ApiResponse.success(opsConsoleService.listFunctionNodes(projectCode));
     }
 
+    /**
+     * 在指定项目下创建功能入口节点，支持配置名称、图标、路由路径和父节点层级。
+     *
+     * @param projectCode 项目编号
+     * @param request     功能节点创建请求，包含节点名称、图标、路由及父节点等信息
+     * @return 新创建的功能节点
+     */
     @PostMapping("/projects/{projectCode}/functions")
     public ApiResponse<FunctionNode> createFunctionNode(
             @PathVariable String projectCode,
