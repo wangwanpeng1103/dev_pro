@@ -1,7 +1,5 @@
 package com.devpro.opsconsole.model;
 
-import java.util.ArrayList;
-import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -23,7 +21,6 @@ public class ProjectModule {
     private int sortOrder;
     @Setter
     private boolean enabled;
-    private final List<FunctionNode> functionNodes = new ArrayList<>();
 
     public ProjectModule(Long id, String code, String name, String description, String iconText, int sortOrder) {
         this.id = id;

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.devpro.opsconsole.mapper.OpsConsoleMapper">
+<mapper namespace="com.devpro.opsconsole.mapper.UserProjectPermissionQueryMapper">
 
     <select id="selectProjectCodesByUserId" resultType="java.lang.String">
         SELECT p.project_code
@@ -33,11 +33,4 @@
         WHERE project_code = #{projectCode}
     </insert>
 
-    <insert id="grantProjectToAdminUsers">
-        INSERT IGNORE INTO ops_user_project_permission (user_id, project_id)
-        SELECT u.id, p.id
-        FROM sys_user u
-        JOIN ops_project p ON p.project_code = #{projectCode}
-        WHERE u.user_type = 'ADMIN'
-    </insert>
 </mapper>

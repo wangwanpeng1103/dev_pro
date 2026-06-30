@@ -4,7 +4,8 @@ import com.devpro.common.ApiResponse;
 import com.devpro.opsconsole.dto.LoginRequest;
 import com.devpro.opsconsole.model.ProjectModule;
 import com.devpro.opsconsole.model.UserAccount;
-import com.devpro.opsconsole.service.OpsConsoleService;
+import com.devpro.opsconsole.service.AuthService;
+import com.devpro.opsconsole.service.ProjectModuleService;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
@@ -20,10 +21,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    private final OpsConsoleService opsConsoleService;
+    private final AuthService authService;
+    private final ProjectModuleService projectModuleService;
 
-    public AuthController(OpsConsoleService opsConsoleService) {
-        this.opsConsoleService = opsConsoleService;
+    public AuthController(AuthService authService, ProjectModuleService projectModuleService) {
+        this.authService = authService;
+        this.projectModuleService = projectModuleService;
     }
 
     /**
@@ -34,8 +37,8 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ApiResponse<Map<String, Object>> login(@Valid @RequestBody LoginRequest request) {
-        UserAccount userAccount = opsConsoleService.login(request.username(), request.password());
-        List<ProjectModule> projects = opsConsoleService.listProjectsForUser(userAccount.getUsername());
+        UserAccount userAccount = authService.login(request.username(), request.password());
+        List<ProjectModule> projects = projectModuleService.listProjectsForUser(userAccount.getUsername());
         return ApiResponse.success(Map.of(
                 "user", userAccount,
                 "projects", projects

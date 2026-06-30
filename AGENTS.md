@@ -45,6 +45,14 @@ Java 类名使用 `UpperCamelCase`；方法、参数、局部变量使用 `lower
 
 Vue 组件使用 `PascalCase` 命名，组合式 API 优先使用 `<script setup>`。TypeScript 开启严格模式，接口和类型名称应表达业务含义。
 
+## 后端模块拆分规范
+
+后续新增或扩展后端管理功能时，必须按项目或业务模块拆分 Controller、Service、Mapper / Repository，不再把多个项目功能堆到一个通用 `OpsConsoleController`、`OpsConsoleService` 或类似大类中。现有边界示例：用户管理使用 `UserAdminController`、`UserAdminService`、`UserAdminRepository`；项目模块使用 `ProjectModuleController`、`ProjectModuleService`、`ProjectModuleRepository`；项目功能节点使用 `FunctionNodeController`、`FunctionNodeService`、`FunctionNodeRepository`。
+
+不同 Controller 的类级 `@RequestMapping` 必须使用能体现模块归属的独立前缀，避免多个业务 Controller 共用同一个笼统路径。当前示例：用户管理使用 `/api/user-admin`，项目模块使用 `/api/project-modules`，项目功能节点使用 `/api/project-function-nodes`。后续新增项目时，类级路径应直接体现项目或业务模块名称。
+
+后续新增 `mihotel`、`ihotel` 或其它项目管理功能时，应优先新建对应项目的 Controller、Service、Mapper / Repository 和必要的 XML Mapper 文件。只有确实跨项目复用的底层能力，才放入语义明确的共享类；共享类名称必须表达具体职责，例如用户项目授权查询使用 `UserProjectPermissionQueryMapper`，避免继续使用笼统的 `OpsConsole*` 命名承载多类职责。
+
 ## 异常、日志与安全
 
 异常处理应保留上下文，不吞异常，不用异常控制正常流程。日志使用统一框架和参数化写法，记录关键业务字段、失败原因和排查线索。

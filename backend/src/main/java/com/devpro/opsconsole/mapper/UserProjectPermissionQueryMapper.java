@@ -6,10 +6,10 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 /**
- * 运维控制台复杂 SQL Mapper。多表关联和 INSERT IGNORE SELECT 统一放到 XML 中维护。
+ * 用户项目授权复杂 SQL Mapper，集中维护跨用户、项目、授权关系表的查询和写入。
  */
 @Mapper
-public interface OpsConsoleMapper {
+public interface UserProjectPermissionQueryMapper {
 
     /**
      * 查询用户已授权项目编码。
@@ -36,11 +36,4 @@ public interface OpsConsoleMapper {
      */
     int insertIgnoreUserProjectPermission(@Param("userId") Long userId, @Param("projectCode") String projectCode);
 
-    /**
-     * 给全部管理员账号授权指定项目。
-     *
-     * @param projectCode 项目编码
-     * @return 写入行数
-     */
-    int grantProjectToAdminUsers(@Param("projectCode") String projectCode);
 }

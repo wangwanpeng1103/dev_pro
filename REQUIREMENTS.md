@@ -558,3 +558,50 @@
 - 用户管理列表默认每页展示 10 条数据。
 - 后续新增后端 Controller 方法时，应优先按 GET 查询、POST 变更的方式设计接口。
 - 如历史文档或外部调用方仍引用 PUT/DELETE 接口，需要同步改为 POST 新路径。
+
+## 2026-06-30 后端按项目和业务模块拆分类结构
+
+### 需求来源
+
+用户要求将 Controller、Service、Mapper 按不同项目或业务模块拆开，避免后续所有功能都堆积在同一个类中；以后新增项目管理功能时，需要新建对应项目的类，并将该约定记录到 `AGENTS.md`。
+
+### 变更摘要
+
+- 删除泛化的 `OpsConsoleController`、`OpsConsoleService`、`OpsConsoleRepository` 和 `OpsConsoleMapper` 命名边界。
+- 用户管理接口拆分为 `UserAdminController`、`UserAdminService`、`UserAdminRepository`。
+- 登录校验拆分为独立 `AuthService`，`AuthController` 不再依赖泛化运维控制台服务。
+- 项目模块接口拆分为 `ProjectModuleController`、`ProjectModuleService`、`ProjectModuleRepository`。
+- 项目功能节点接口拆分为 `FunctionNodeController`、`FunctionNodeService`、`FunctionNodeRepository`。
+- 原 XML 中跨用户、项目、授权关系表的复杂 SQL 拆分为 `UserProjectPermissionQueryMapper` 和对应 XML，名称直接表达用户项目授权查询与写入职责。
+- 对外 API 路径保持兼容，前端无需因本次类拆分调整调用地址。
+- `AGENTS.md` 新增后端模块拆分规范：后续新增 `mihotel`、`ihotel` 或其它项目管理功能时，优先新建对应项目的 Controller、Service、Mapper / Repository 和必要 XML Mapper 文件。
+- 根据后续确认，拆分后的 Controller 类级 `@RequestMapping` 不再共用 `/api/ops-console`，改为按模块区分：用户管理 `/api/user-admin`，项目模块 `/api/project-modules`，项目功能节点 `/api/project-function-nodes`。
+- 前端 API 封装同步切换到新的模块化接口路径。
+
+### 影响范围
+
+- 后端代码阅读和维护按认证、用户管理、项目模块、项目功能节点分区。
+- 后续新增项目管理能力时，不应继续扩展笼统的 `OpsConsole*` 大类，而应按项目或业务模块建立独立类。
+- 跨项目复用能力可以保留共享类，但类名必须表达具体职责，避免泛化命名造成职责堆积。
+- 后续新增 Controller 时，类级路径也要体现模块或项目名称，避免多个 Controller 共用同一个笼统前缀导致接口归属不清。
+
+## 2026-06-30 清理未使用接口和方法
+
+### 需求来源
+
+用户要求扫描全部项目，删除当前未使用的接口和方法，只保留实际使用的能力，保持项目干净。
+
+### 变更摘要
+
+- 前端删除未被页面调用的 API 封装：永久用户专用查询、永久用户专用修改、永久用户专用删除、功能节点查询和健康检查前端封装。
+- 后端删除当前无前端入口且无内部调用链的接口：永久用户专用查询、永久用户专用修改、永久用户专用删除、独立用户项目授权更新、项目创建、项目功能节点查询和项目功能节点创建。
+- 删除上述接口对应的未使用 DTO、Service 方法、Repository 方法、Mapper 方法和功能节点相关模型。
+- 删除当前代码不再使用的功能节点实体、Mapper、Repository、Service、Controller 和前端类型定义。
+- 数据库 schema 与 seed 同步移除 `ops_function_node` 表定义和功能节点初始化数据，避免脚本继续保留当前业务不用的结构。
+- 后端 `/api/health` 健康检查接口仍保留，用于启动日志、部署探活和基础运行状态确认；仅删除前端未调用的封装函数。
+
+### 影响范围
+
+- 当前保留的前端 API 与后端接口仅覆盖登录、用户分页、新增用户、修改用户、删除用户、修改密码和项目列表。
+- 功能节点配置能力已从当前代码和数据库初始化脚本移除，后续如重新启用，需要按项目模块拆分规范重新新增对应类和脚本。
+- 项目创建接口当前没有前端入口，已删除；后续需要项目维护页面时再按模块重新设计并补回。

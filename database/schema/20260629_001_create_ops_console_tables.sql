@@ -31,20 +31,3 @@ CREATE TABLE IF NOT EXISTS ops_user_project_permission (
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     UNIQUE KEY uk_user_project_permission (user_id, project_id)
 ) COMMENT='用户项目模块授权表';
-
-CREATE TABLE IF NOT EXISTS ops_function_node (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT '功能节点ID',
-    project_id BIGINT NOT NULL COMMENT '所属项目模块ID',
-    parent_id BIGINT NULL COMMENT '父节点ID',
-    node_code VARCHAR(64) NOT NULL COMMENT '节点编码',
-    node_name VARCHAR(128) NOT NULL COMMENT '节点名称',
-    node_type VARCHAR(32) NOT NULL COMMENT '节点类型：DIRECTORY、MENU、EXTERNAL_LINK、SSO_LINK',
-    route_path VARCHAR(255) NULL COMMENT '前端路由地址',
-    external_url VARCHAR(512) NULL COMMENT '外部链接地址',
-    sso_enabled TINYINT NOT NULL DEFAULT 0 COMMENT '是否预留单点登录',
-    sort_order INT NOT NULL DEFAULT 0 COMMENT '排序号',
-    enabled TINYINT NOT NULL DEFAULT 1 COMMENT '是否启用',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    UNIQUE KEY uk_project_node_code (project_id, node_code)
-) COMMENT='项目功能树节点表';
