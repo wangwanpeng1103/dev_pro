@@ -1,0 +1,52 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: devpro-prod-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-dev_pro}
+      MYSQL_USER: ${MYSQL_USER:-devpro}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Shanghai
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-prod-data:/var/lib/mysql
+      - ./database/schema/20260629_001_create_ops_console_tables.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ./database/seed/20260629_001_init_ops_console_seed.sql:/docker-entrypoint-initdb.d/002_seed.sql:ro
+      - ./database/migration/20260702_001_add_cloud_checkin_project.sql:/docker-entrypoint-initdb.d/003_cloud_checkin_project.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: devpro-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-dev_pro}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-${MYSQL_USER:-devpro}}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-${MYSQL_PASSWORD}}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: devpro-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+
+volumes:
+  mysql-prod-data:
