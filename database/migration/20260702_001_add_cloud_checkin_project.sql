@@ -1,3 +1,5 @@
+SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+
 INSERT INTO ops_project (project_code, project_name, description, icon_text, sort_order, enabled)
 VALUES ('cloud-checkin', '云入住', '云入住运维项目模块', 'CI', 40, 1)
 ON DUPLICATE KEY UPDATE

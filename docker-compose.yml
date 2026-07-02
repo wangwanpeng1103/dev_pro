@@ -9,6 +9,9 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change_me}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change_root_me}
       TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
     ports:
       - "3306:3306"
     volumes:
@@ -32,6 +35,9 @@ services:
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+      MIHOTEL_CLEAR_CACHE_TRUNK_TARGETS: ${MIHOTEL_CLEAR_CACHE_TRUNK_TARGETS:-}
+      MIHOTEL_CLEAR_CACHE_LOCAL_TARGETS: ${MIHOTEL_CLEAR_CACHE_LOCAL_TARGETS:-}
+      MIHOTEL_CLEAR_CACHE_READ_TIMEOUT_SECONDS: ${MIHOTEL_CLEAR_CACHE_READ_TIMEOUT_SECONDS:-180}
     ports:
       - "8080:8080"
 
@@ -47,4 +53,3 @@ services:
 
 volumes:
   mysql-data:
-

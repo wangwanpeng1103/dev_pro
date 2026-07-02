@@ -5,13 +5,18 @@ import {
   createTemporaryUser,
   deleteUser,
   extendTemporaryUserTime,
+  clearMihotelCacheTarget,
   listProjects,
   listUsers,
+  listMihotelCacheTargets,
   login,
   lookupCloudCheckinGroupAddress,
   lookupCloudCheckinStoreConfig,
   updateUser,
   updateUserPassword,
+  type MihotelCacheClearResult,
+  type MihotelCacheEnvironment,
+  type MihotelCacheTarget,
   type ProjectModule,
   type UserType,
   type UserAccount
@@ -20,6 +25,8 @@ import {
 type ViewName = 'login' | 'projects' | 'admin' | 'project'
 type AdminFeature = 'user-list'
 type CloudCheckinFeature = 'store-rop-registration' | 'address-validation'
+type MihotelFeature = 'clear-cache'
+type CacheClearStatus = 'idle' | 'running' | 'success' | 'failed'
 type UserDialogMode = 'create' | 'edit'
 
 const currentView = ref<ViewName>('login')
@@ -34,6 +41,7 @@ const users = ref<UserAccount[]>([])
 const selectedProject = ref<ProjectModule | null>(null)
 const activeAdminFeature = ref<AdminFeature>('user-list')
 const activeCloudCheckinFeature = ref<CloudCheckinFeature>('store-rop-registration')
+const activeMihotelFeature = ref<MihotelFeature>('clear-cache')
 const userPage = ref(1)
 const userPageSize = 10
 const userTotal = ref(0)
@@ -81,6 +89,12 @@ const addressValidationAppKey = ref('')
 const addressValidationAppSecret = ref('')
 const addressValidationGeneratedText = ref('')
 const addressValidationCopyMessage = ref('')
+const mihotelCacheTargets = ref<MihotelCacheTarget[]>([])
+const mihotelCacheLoading = ref(false)
+const mihotelCacheRunning = ref(false)
+const mihotelCacheMessage = ref('')
+const mihotelCacheStatuses = ref<Record<string, CacheClearStatus>>({})
+const mihotelCacheResults = ref<Record<string, MihotelCacheClearResult>>({})
 
 const isAdmin = computed(() => currentUser.value?.userType === 'ADMIN')
 const visibleProjects = computed(() => projects.value.filter((project) => project.enabled))
@@ -88,6 +102,13 @@ const assignableProjects = computed(() => visibleProjects.value.filter((project)
 const totalUserPages = computed(() => Math.max(1, userTotalPages.value))
 const pagedUsers = computed(() => users.value)
 const isCloudCheckinProject = computed(() => selectedProject.value?.code === 'cloud-checkin')
+const isMihotelProject = computed(() => selectedProject.value?.code === 'mihotel')
+const mihotelTrunkCacheTargets = computed(() =>
+  mihotelCacheTargets.value.filter((target) => target.environment === 'TRUNK')
+)
+const mihotelLocalCacheTargets = computed(() =>
+  mihotelCacheTargets.value.filter((target) => target.environment === 'LOCAL')
+)
 const pageTitle = computed(() => {
   if (currentView.value === 'projects') {
     return '项目模块'
@@ -138,6 +159,9 @@ async function openProject(project: ProjectModule) {
     activeCloudCheckinFeature.value = 'store-rop-registration'
     resetRopRegistrationForm()
     resetAddressValidationForm()
+  } else if (project.code === 'mihotel') {
+    activeMihotelFeature.value = 'clear-cache'
+    void loadMihotelCacheTargets()
   }
   currentView.value = project.code === 'user-admin' ? 'admin' : 'project'
 }
@@ -188,6 +212,117 @@ function resetAddressValidationForm() {
   addressValidationAppSecret.value = ''
   addressValidationGeneratedText.value = ''
   addressValidationCopyMessage.value = ''
+}
+
+async function loadMihotelCacheTargets() {
+  mihotelCacheLoading.value = true
+  mihotelCacheMessage.value = ''
+  try {
+    const targets = await listMihotelCacheTargets()
+    mihotelCacheTargets.value = [...targets].sort((firstTarget, secondTarget) => {
+      return firstTarget.sortOrder - secondTarget.sortOrder
+    })
+    resetMihotelCacheRunState()
+    if (targets.length === 0) {
+      mihotelCacheMessage.value = '缓存清理目标尚未配置，请先在后端环境变量中配置 mihotel 清理目标。'
+    }
+  } catch (error) {
+    mihotelCacheTargets.value = []
+    resetMihotelCacheRunState()
+    mihotelCacheMessage.value = error instanceof Error
+      ? `缓存清理目标加载失败：${error.message}`
+      : '缓存清理目标加载失败，请稍后刷新节点'
+  } finally {
+    mihotelCacheLoading.value = false
+  }
+}
+
+function resetMihotelCacheRunState() {
+  mihotelCacheStatuses.value = Object.fromEntries(
+    mihotelCacheTargets.value.map((target) => [target.code, 'idle' as CacheClearStatus])
+  )
+  mihotelCacheResults.value = {}
+}
+
+function mihotelCacheStatus(targetCode: string) {
+  return mihotelCacheStatuses.value[targetCode] ?? 'idle'
+}
+
+function mihotelCacheResult(targetCode: string) {
+  return mihotelCacheResults.value[targetCode]
+}
+
+function cacheStatusLabel(status: CacheClearStatus) {
+  const statusLabels: Record<CacheClearStatus, string> = {
+    idle: '等待',
+    running: '执行中',
+    success: '成功',
+    failed: '失败'
+  }
+  return statusLabels[status]
+}
+
+function formatDuration(durationMillis?: number) {
+  if (durationMillis === undefined) {
+    return ''
+  }
+  if (durationMillis < 1000) {
+    return `${durationMillis} ms`
+  }
+  return `${(durationMillis / 1000).toFixed(1)} s`
+}
+
+async function clearMihotelCache(environment: MihotelCacheEnvironment) {
+  if (mihotelCacheRunning.value) {
+    return
+  }
+  const targets = environment === 'TRUNK' ? mihotelTrunkCacheTargets.value : mihotelLocalCacheTargets.value
+  if (targets.length === 0) {
+    errorMessage.value = environment === 'TRUNK' ? '主干缓存清理目标未配置' : '本地缓存清理目标未配置'
+    return
+  }
+  const targetCodes = new Set(targets.map((target) => target.code))
+  mihotelCacheStatuses.value = {
+    ...mihotelCacheStatuses.value,
+    ...Object.fromEntries(targets.map((target) => [target.code, 'idle' as CacheClearStatus]))
+  }
+  mihotelCacheResults.value = Object.fromEntries(
+    Object.entries(mihotelCacheResults.value).filter(([targetCode]) => !targetCodes.has(targetCode))
+  )
+  mihotelCacheRunning.value = true
+  mihotelCacheMessage.value = environment === 'TRUNK' ? '主干缓存清理中，请等待当前节点成功后继续下一个节点。' : '本地缓存清理中。'
+  for (const target of targets) {
+    mihotelCacheStatuses.value = {
+      ...mihotelCacheStatuses.value,
+      [target.code]: 'running'
+    }
+    try {
+      const result = await clearMihotelCacheTarget(target.code)
+      mihotelCacheResults.value = {
+        ...mihotelCacheResults.value,
+        [target.code]: result
+      }
+      mihotelCacheStatuses.value = {
+        ...mihotelCacheStatuses.value,
+        [target.code]: result.success ? 'success' : 'failed'
+      }
+      if (!result.success) {
+        mihotelCacheMessage.value = `${target.name} 清理失败，后续节点已停止执行。`
+        mihotelCacheRunning.value = false
+        return
+      }
+    } catch (error) {
+      mihotelCacheStatuses.value = {
+        ...mihotelCacheStatuses.value,
+        [target.code]: 'failed'
+      }
+      mihotelCacheMessage.value = error instanceof Error ? error.message : `${target.name} 清理失败`
+      mihotelCacheRunning.value = false
+      return
+    }
+  }
+  mihotelCacheMessage.value = environment === 'TRUNK' ? '主干环境缓存已全部清理完成。' : '本地环境缓存已清理完成。'
+  mihotelCacheRunning.value = false
 }
 
 function openRopAuthManualDialog() {
@@ -806,6 +941,16 @@ async function nextUserPage() {
               <small>ADDRESS VALIDATION</small>
             </button>
           </template>
+          <template v-else-if="isMihotelProject">
+            <button
+              :class="['feature-item', { active: activeMihotelFeature === 'clear-cache' }]"
+              type="button"
+              @click="activeMihotelFeature = 'clear-cache'"
+            >
+              清除缓存
+              <small>CLEAR CACHE</small>
+            </button>
+          </template>
           <p v-else class="feature-empty">功能模块待补充</p>
         </aside>
 
@@ -1076,6 +1221,110 @@ async function nextUserPage() {
             ></textarea>
           </section>
         </section>
+
+          <section v-else-if="isMihotelProject && activeMihotelFeature === 'clear-cache'" class="workspace-panel mihotel-cache-panel">
+            <div class="mihotel-cache-header">
+              <div>
+                <p class="eyebrow">MIHOTEL CACHE</p>
+                <h3>清除缓存</h3>
+              </div>
+              <button
+                class="ghost-button"
+                type="button"
+                :disabled="mihotelCacheLoading || mihotelCacheRunning"
+                @click="loadMihotelCacheTargets"
+              >
+                刷新节点
+              </button>
+            </div>
+
+            <div class="mihotel-cache-summary">
+              <div>
+                <strong>主干环境</strong>
+                <span>{{ mihotelTrunkCacheTargets.length }} 个服务，按顺序逐个清理</span>
+              </div>
+              <div>
+                <strong>本地环境</strong>
+                <span>{{ mihotelLocalCacheTargets.length }} 个服务，单独清理</span>
+              </div>
+            </div>
+
+            <p v-if="mihotelCacheMessage" class="mihotel-cache-message">{{ mihotelCacheMessage }}</p>
+
+            <div class="cache-environment-grid">
+              <section class="cache-group-card">
+                <div class="cache-group-heading">
+                  <div>
+                    <p class="eyebrow">TRUNK</p>
+                    <h4>主干环境</h4>
+                  </div>
+                  <button
+                    class="primary-button cache-action-button"
+                    type="button"
+                    :disabled="mihotelCacheLoading || mihotelCacheRunning || mihotelTrunkCacheTargets.length === 0"
+                    @click="clearMihotelCache('TRUNK')"
+                  >
+                    {{ mihotelCacheRunning ? '执行中...' : '清理主干' }}
+                  </button>
+                </div>
+
+                <div class="cache-node-list">
+                  <div
+                    v-for="(target, index) in mihotelTrunkCacheTargets"
+                    :key="target.code"
+                    :class="['cache-node', mihotelCacheStatus(target.code)]"
+                  >
+                    <span class="cache-node-index">{{ String(index + 1).padStart(2, '0') }}</span>
+                    <div class="cache-node-main">
+                      <strong>{{ target.name }}</strong>
+                      <small>{{ mihotelCacheResult(target.code)?.message || '等待清理指令' }}</small>
+                    </div>
+                    <span class="cache-duration">{{ formatDuration(mihotelCacheResult(target.code)?.durationMillis) }}</span>
+                    <span class="cache-status-badge">{{ cacheStatusLabel(mihotelCacheStatus(target.code)) }}</span>
+                  </div>
+                  <div v-if="!mihotelCacheLoading && mihotelTrunkCacheTargets.length === 0" class="cache-empty">
+                    主干清理目标未配置
+                  </div>
+                </div>
+              </section>
+
+              <section class="cache-group-card">
+                <div class="cache-group-heading">
+                  <div>
+                    <p class="eyebrow">LOCAL</p>
+                    <h4>本地环境</h4>
+                  </div>
+                  <button
+                    class="primary-button cache-action-button"
+                    type="button"
+                    :disabled="mihotelCacheLoading || mihotelCacheRunning || mihotelLocalCacheTargets.length === 0"
+                    @click="clearMihotelCache('LOCAL')"
+                  >
+                    {{ mihotelCacheRunning ? '执行中...' : '清理本地' }}
+                  </button>
+                </div>
+
+                <div class="cache-node-list">
+                  <div
+                    v-for="(target, index) in mihotelLocalCacheTargets"
+                    :key="target.code"
+                    :class="['cache-node', mihotelCacheStatus(target.code)]"
+                  >
+                    <span class="cache-node-index">{{ String(index + 1).padStart(2, '0') }}</span>
+                    <div class="cache-node-main">
+                      <strong>{{ target.name }}</strong>
+                      <small>{{ mihotelCacheResult(target.code)?.message || '等待清理指令' }}</small>
+                    </div>
+                    <span class="cache-duration">{{ formatDuration(mihotelCacheResult(target.code)?.durationMillis) }}</span>
+                    <span class="cache-status-badge">{{ cacheStatusLabel(mihotelCacheStatus(target.code)) }}</span>
+                  </div>
+                  <div v-if="!mihotelCacheLoading && mihotelLocalCacheTargets.length === 0" class="cache-empty">
+                    本地清理目标未配置
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
 
           <section v-else class="workspace-panel">
             <p class="eyebrow">{{ selectedProject?.code }}</p>

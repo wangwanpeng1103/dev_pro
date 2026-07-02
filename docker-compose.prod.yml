@@ -9,6 +9,9 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
     ports:
       - "${MYSQL_PORT:-3306}:3306"
     volumes:
@@ -16,6 +19,7 @@ services:
       - ./database/schema/20260629_001_create_ops_console_tables.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
       - ./database/seed/20260629_001_init_ops_console_seed.sql:/docker-entrypoint-initdb.d/002_seed.sql:ro
       - ./database/migration/20260702_001_add_cloud_checkin_project.sql:/docker-entrypoint-initdb.d/003_cloud_checkin_project.sql:ro
+      - ./database/migration/20260702_002_fix_ops_console_utf8mb4.sql:/docker-entrypoint-initdb.d/004_fix_ops_console_utf8mb4.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -32,9 +36,12 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
-      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-dev_pro}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-dev_pro}?useUnicode=true&characterEncoding=utf8mb4&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-${MYSQL_USER:-devpro}}
       SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-${MYSQL_PASSWORD}}
+      MIHOTEL_CLEAR_CACHE_TRUNK_TARGETS: ${MIHOTEL_CLEAR_CACHE_TRUNK_TARGETS:-}
+      MIHOTEL_CLEAR_CACHE_LOCAL_TARGETS: ${MIHOTEL_CLEAR_CACHE_LOCAL_TARGETS:-}
+      MIHOTEL_CLEAR_CACHE_READ_TIMEOUT_SECONDS: ${MIHOTEL_CLEAR_CACHE_READ_TIMEOUT_SECONDS:-180}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
 

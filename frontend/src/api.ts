@@ -81,6 +81,25 @@ export interface StoreCloudConfigLookupResult {
   rawConfig: string | null
 }
 
+export type MihotelCacheEnvironment = 'TRUNK' | 'LOCAL'
+
+export interface MihotelCacheTarget {
+  code: string
+  name: string
+  environment: MihotelCacheEnvironment
+  sortOrder: number
+}
+
+export interface MihotelCacheClearResult {
+  code: string
+  name: string
+  environment: MihotelCacheEnvironment
+  success: boolean
+  httpStatus: number
+  durationMillis: number
+  message: string
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
 
 async function parseApiResponse<T>(response: Response): Promise<ApiResponse<T> | null> {
@@ -195,4 +214,15 @@ export function lookupCloudCheckinGroupAddress(groupCode: string): Promise<Group
 export function lookupCloudCheckinStoreConfig(storeCode: string): Promise<StoreCloudConfigLookupResult> {
   const query = `?storeCode=${encodeURIComponent(storeCode)}`
   return request<StoreCloudConfigLookupResult>(`/api/cloud-checkin/store-cloud-config${query}`)
+}
+
+export function listMihotelCacheTargets(): Promise<MihotelCacheTarget[]> {
+  return request<MihotelCacheTarget[]>('/api/mihotel/cache-targets')
+}
+
+export function clearMihotelCacheTarget(targetCode: string): Promise<MihotelCacheClearResult> {
+  return request<MihotelCacheClearResult>('/api/mihotel/clear-cache', {
+    method: 'POST',
+    body: JSON.stringify({ targetCode })
+  })
 }

@@ -1,3 +1,5 @@
+SET NAMES utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+
 INSERT INTO sys_user (username, display_name, password_hash, user_type, enabled)
 VALUES ('admin', '系统管理员', '{noop}admin', 'ADMIN', 1)
 ON DUPLICATE KEY UPDATE
