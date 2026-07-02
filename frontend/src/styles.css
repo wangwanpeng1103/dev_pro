@@ -17,7 +17,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -188,14 +189,26 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
-  height: 42px;
   padding: 0 14px;
   border: 1px solid #cbd8e5;
   border-radius: 8px;
   color: #152033;
   background: #f8fafc;
+}
+
+input,
+select {
+  height: 42px;
+}
+
+textarea {
+  min-height: 220px;
+  padding: 14px;
+  resize: vertical;
+  line-height: 1.6;
 }
 
 input:disabled,
@@ -865,6 +878,206 @@ small,
   padding: 28px;
 }
 
+.cloud-feature-panel {
+  display: grid;
+  gap: 18px;
+  width: min(980px, calc(100% - 64px));
+}
+
+.rop-registration-form {
+  display: grid;
+  gap: 18px;
+}
+
+.rop-form-section {
+  display: grid;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #fbfdff;
+}
+
+.rop-section-heading {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.rop-section-heading h4 {
+  font-size: 18px;
+}
+
+.rop-section-heading p {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+.rop-step {
+  display: grid;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #101b2f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.rop-full-field {
+  max-width: 720px;
+}
+
+.rop-query-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 104px;
+  gap: 12px;
+  align-items: end;
+}
+
+.rop-query-button {
+  min-height: 42px;
+  padding: 0 18px;
+}
+
+.rop-query-button:disabled {
+  cursor: wait;
+}
+
+.rop-query-message {
+  margin-top: -6px;
+  color: #5c789a;
+  font-size: 13px;
+}
+
+.address-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 16px;
+  max-width: 720px;
+}
+
+.address-config-full {
+  grid-column: 1 / -1;
+}
+
+.rop-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.rop-upload-button {
+  position: relative;
+  display: inline-grid;
+  min-height: 38px;
+  width: auto;
+  padding: 0 18px;
+  place-items: center;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #2f5bb7;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.rop-upload-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.rop-manual-button {
+  min-width: 112px;
+}
+
+.rop-auth-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 12px 14px;
+  border: 1px solid #d8e2ed;
+  border-radius: 8px;
+  color: #718096;
+  background: #f8fafc;
+}
+
+.rop-auth-preview strong {
+  color: #152033;
+  font-size: 14px;
+  font-weight: 700;
+  word-break: break-all;
+}
+
+.rop-auth-label {
+  color: #5c789a;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.rop-form-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rop-submit-button {
+  min-width: 88px;
+  min-height: 34px;
+  padding: 0 16px;
+}
+
+.rop-result-panel {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid #cbd8e5;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.rop-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.rop-copy-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #176044;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rop-copy-button {
+  min-width: 116px;
+  padding: 0 18px;
+}
+
+.rop-result-textarea {
+  min-height: 118px;
+  color: #26364f;
+  background: #ffffff;
+  font-family:
+    "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
+.rop-manual-dialog {
+  width: min(720px, calc(100% - 32px));
+}
+
 @media (max-width: 960px) {
   .login-layout,
   .project-workbench {
@@ -902,6 +1115,19 @@ small,
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .rop-query-row {
+    grid-template-columns: 1fr;
+  }
+
+  .address-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rop-result-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .pagination-bar {

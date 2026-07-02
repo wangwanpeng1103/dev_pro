@@ -61,6 +61,26 @@ export interface TemporaryUserTimeExtendRequest {
   extendHours: number
 }
 
+export interface GroupAddressLookupResult {
+  found: boolean
+  groupCode: string
+  groupName: string | null
+  groupAddress: string | null
+}
+
+export interface StoreCloudConfigLookupResult {
+  found: boolean
+  storeCode: string
+  configName: string | null
+  groupAddress: string | null
+  groupCode: string | null
+  username: string | null
+  password: string | null
+  appKey: string | null
+  appSecret: string | null
+  rawConfig: string | null
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
 
 async function parseApiResponse<T>(response: Response): Promise<ApiResponse<T> | null> {
@@ -165,4 +185,14 @@ export function extendTemporaryUserTime(
 export function listProjects(username?: string): Promise<ProjectModule[]> {
   const query = username ? `?username=${encodeURIComponent(username)}` : ''
   return request<ProjectModule[]>(`/api/project-modules${query}`)
+}
+
+export function lookupCloudCheckinGroupAddress(groupCode: string): Promise<GroupAddressLookupResult> {
+  const query = `?groupCode=${encodeURIComponent(groupCode)}`
+  return request<GroupAddressLookupResult>(`/api/cloud-checkin/group-address${query}`)
+}
+
+export function lookupCloudCheckinStoreConfig(storeCode: string): Promise<StoreCloudConfigLookupResult> {
+  const query = `?storeCode=${encodeURIComponent(storeCode)}`
+  return request<StoreCloudConfigLookupResult>(`/api/cloud-checkin/store-cloud-config${query}`)
 }

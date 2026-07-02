@@ -8,6 +8,8 @@ import {
   listProjects,
   listUsers,
   login,
+  lookupCloudCheckinGroupAddress,
+  lookupCloudCheckinStoreConfig,
   updateUser,
   updateUserPassword,
   type ProjectModule,
@@ -17,11 +19,12 @@ import {
 
 type ViewName = 'login' | 'projects' | 'admin' | 'project'
 type AdminFeature = 'user-list'
+type CloudCheckinFeature = 'store-rop-registration' | 'address-validation'
 type UserDialogMode = 'create' | 'edit'
 
 const currentView = ref<ViewName>('login')
-const username = ref('admin')
-const password = ref('admin')
+const username = ref('')
+const password = ref('')
 const errorMessage = ref('')
 const successMessage = ref('')
 const loading = ref(false)
@@ -30,6 +33,7 @@ const projects = ref<ProjectModule[]>([])
 const users = ref<UserAccount[]>([])
 const selectedProject = ref<ProjectModule | null>(null)
 const activeAdminFeature = ref<AdminFeature>('user-list')
+const activeCloudCheckinFeature = ref<CloudCheckinFeature>('store-rop-registration')
 const userPage = ref(1)
 const userPageSize = 10
 const userTotal = ref(0)
@@ -55,12 +59,35 @@ const passwordForm = ref({
 const extendTimeForm = ref({
   extendHours: 24
 })
+const ropGroupCode = ref('')
+const ropGroupAddress = ref('')
+const ropGroupLookupLoading = ref(false)
+const ropGroupLookupMessage = ref('')
+const ropAuthManualDialogVisible = ref(false)
+const ropAuthManualContent = ref('')
+const ropAuthFileName = ref('')
+const ropAuthFileContent = ref('')
+const ropRegistrationEncryptedText = ref('')
+const ropCopyMessage = ref('')
+const addressValidationStoreCode = ref('')
+const addressValidationLoading = ref(false)
+const addressValidationMessage = ref('')
+const addressValidationFound = ref(false)
+const addressValidationGroupAddress = ref('')
+const addressValidationGroupCode = ref('')
+const addressValidationUsername = ref('')
+const addressValidationPassword = ref('')
+const addressValidationAppKey = ref('')
+const addressValidationAppSecret = ref('')
+const addressValidationGeneratedText = ref('')
+const addressValidationCopyMessage = ref('')
 
 const isAdmin = computed(() => currentUser.value?.userType === 'ADMIN')
 const visibleProjects = computed(() => projects.value.filter((project) => project.enabled))
 const assignableProjects = computed(() => visibleProjects.value.filter((project) => project.code !== 'user-admin'))
 const totalUserPages = computed(() => Math.max(1, userTotalPages.value))
 const pagedUsers = computed(() => users.value)
+const isCloudCheckinProject = computed(() => selectedProject.value?.code === 'cloud-checkin')
 const pageTitle = computed(() => {
   if (currentView.value === 'projects') {
     return '项目模块'
@@ -107,6 +134,10 @@ async function openProject(project: ProjectModule) {
     activeAdminFeature.value = 'user-list'
     userPage.value = 1
     await refreshAdminData()
+  } else if (project.code === 'cloud-checkin') {
+    activeCloudCheckinFeature.value = 'store-rop-registration'
+    resetRopRegistrationForm()
+    resetAddressValidationForm()
   }
   currentView.value = project.code === 'user-admin' ? 'admin' : 'project'
 }
@@ -118,6 +149,8 @@ function logout() {
 }
 
 function backToProjects() {
+  resetRopRegistrationForm()
+  resetAddressValidationForm()
   selectedProject.value = null
   currentView.value = 'projects'
 }
@@ -128,6 +161,259 @@ function closeErrorDialog() {
 
 function closeSuccessDialog() {
   successMessage.value = ''
+}
+
+function resetRopRegistrationForm() {
+  ropGroupCode.value = ''
+  ropGroupAddress.value = ''
+  ropGroupLookupMessage.value = ''
+  ropAuthManualDialogVisible.value = false
+  ropAuthManualContent.value = ''
+  ropAuthFileName.value = ''
+  ropAuthFileContent.value = ''
+  ropRegistrationEncryptedText.value = ''
+  ropCopyMessage.value = ''
+}
+
+function resetAddressValidationForm() {
+  addressValidationStoreCode.value = ''
+  addressValidationLoading.value = false
+  addressValidationMessage.value = ''
+  addressValidationFound.value = false
+  addressValidationGroupAddress.value = ''
+  addressValidationGroupCode.value = ''
+  addressValidationUsername.value = ''
+  addressValidationPassword.value = ''
+  addressValidationAppKey.value = ''
+  addressValidationAppSecret.value = ''
+  addressValidationGeneratedText.value = ''
+  addressValidationCopyMessage.value = ''
+}
+
+function openRopAuthManualDialog() {
+  ropAuthManualDialogVisible.value = true
+}
+
+function closeRopAuthManualDialog() {
+  ropAuthManualDialogVisible.value = false
+}
+
+async function confirmRopAuthManualInput() {
+  if (!ropAuthManualContent.value.trim()) {
+    errorMessage.value = '请先输入 ROP 认证信息'
+    return
+  }
+  ropAuthFileName.value = ''
+  ropAuthFileContent.value = ''
+  ropRegistrationEncryptedText.value = ''
+  ropCopyMessage.value = ''
+  ropAuthManualDialogVisible.value = false
+  await applyHotelGroupCodeFromRopAuthContent(ropAuthManualContent.value)
+}
+
+async function handleRopAuthFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) {
+    return
+  }
+  try {
+    ropAuthFileName.value = file.name
+    ropAuthFileContent.value = await file.text()
+    ropAuthManualContent.value = ''
+    ropRegistrationEncryptedText.value = ''
+    ropCopyMessage.value = ''
+    await applyHotelGroupCodeFromRopAuthContent(ropAuthFileContent.value)
+  } catch {
+    errorMessage.value = '认证文件读取失败，请重新上传或改为手动输入'
+  }
+}
+
+function extractRopField(content: string, fieldName: string) {
+  const escapedFieldName = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const fieldPattern = new RegExp(`(?:^|\\r?\\n)\\s*${escapedFieldName}\\s*[:=]\\s*([^\\r\\n]+)`, 'i')
+  return content.match(fieldPattern)?.[1]?.trim() ?? ''
+}
+
+function extractHotelGroupCode(content: string) {
+  return extractRopField(content, 'hotelGroupCode')
+}
+
+async function applyHotelGroupCodeFromRopAuthContent(content: string) {
+  const hotelGroupCode = extractHotelGroupCode(content)
+  if (!hotelGroupCode) {
+    ropGroupCode.value = ''
+    ropGroupAddress.value = ''
+    ropGroupLookupMessage.value = '认证信息中未识别到 hotelGroupCode，请手动填写集团代码'
+    return
+  }
+  ropGroupCode.value = hotelGroupCode
+  await lookupRopGroupAddress(hotelGroupCode)
+}
+
+async function lookupRopGroupAddress(groupCodeOverride?: string) {
+  const groupCode = (groupCodeOverride ?? ropGroupCode.value).trim()
+  if (!groupCode) {
+    errorMessage.value = '请先输入集团代码'
+    return
+  }
+  ropGroupCode.value = groupCode
+  ropGroupLookupLoading.value = true
+  ropGroupLookupMessage.value = ''
+  try {
+    const result = await lookupCloudCheckinGroupAddress(groupCode)
+    if (result.found && result.groupAddress) {
+      ropGroupAddress.value = result.groupAddress
+      ropGroupLookupMessage.value = result.groupName
+        ? `已查询到 ${result.groupName} 的集团地址`
+        : '已查询到集团地址'
+    } else {
+      ropGroupAddress.value = ''
+      ropGroupLookupMessage.value = '未查询到集团地址，请手动填写'
+    }
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '集团地址查询失败'
+  } finally {
+    ropGroupLookupLoading.value = false
+  }
+}
+
+function submitRopRegistration() {
+  if (!ropGroupCode.value.trim()) {
+    errorMessage.value = '请先输入集团代码'
+    return
+  }
+  if (!ropGroupAddress.value.trim()) {
+    errorMessage.value = '请先输入集团地址'
+    return
+  }
+  const authContent = ropAuthManualContent.value.trim() || ropAuthFileContent.value.trim()
+  if (!authContent) {
+    errorMessage.value = '请上传或手动输入 ROP 认证信息'
+    return
+  }
+  const missingFields = ['username', 'password', 'appKey', 'appSecret'].filter(
+    (fieldName) => !extractRopField(authContent, fieldName)
+  )
+  if (missingFields.length > 0) {
+    errorMessage.value = `ROP 认证信息缺少字段：${missingFields.join('、')}`
+    return
+  }
+  ropRegistrationEncryptedText.value = generateRopRegistrationText(authContent)
+  ropCopyMessage.value = ''
+}
+
+function generateRopRegistrationText(authContent: string) {
+  return [
+    ropGroupAddress.value.trim(),
+    ropGroupCode.value.trim(),
+    extractRopField(authContent, 'username'),
+    extractRopField(authContent, 'password'),
+    extractRopField(authContent, 'appKey'),
+    extractRopField(authContent, 'appSecret')
+  ].join(';')
+}
+
+async function copyRopRegistrationEncryptedText() {
+  if (!ropRegistrationEncryptedText.value) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(ropRegistrationEncryptedText.value)
+    ropCopyMessage.value = '已复制'
+  } catch {
+    errorMessage.value = '复制失败，请手动选择门店云入住信息复制'
+  }
+}
+
+async function lookupAddressValidationStoreConfig() {
+  const storeCode = addressValidationStoreCode.value.trim()
+  if (!storeCode) {
+    errorMessage.value = '请先输入门店代码'
+    return
+  }
+  addressValidationStoreCode.value = storeCode
+  addressValidationLoading.value = true
+  addressValidationMessage.value = ''
+  addressValidationFound.value = false
+  addressValidationGeneratedText.value = ''
+  addressValidationCopyMessage.value = ''
+  try {
+    const result = await lookupCloudCheckinStoreConfig(storeCode)
+    if (!result.found) {
+      clearAddressValidationConfigFields()
+      addressValidationMessage.value = '该酒店没有云入住配置'
+      return
+    }
+    addressValidationFound.value = true
+    addressValidationGroupAddress.value = result.groupAddress ?? ''
+    addressValidationGroupCode.value = result.groupCode ?? ''
+    addressValidationUsername.value = result.username ?? ''
+    addressValidationPassword.value = result.password ?? ''
+    addressValidationAppKey.value = result.appKey ?? ''
+    addressValidationAppSecret.value = result.appSecret ?? ''
+    addressValidationMessage.value = result.configName
+      ? `已查询到 ${result.configName} 的云入住配置`
+      : '已查询到门店云入住配置'
+  } catch (error) {
+    clearAddressValidationConfigFields()
+    errorMessage.value = error instanceof Error ? error.message : '门店云入住配置查询失败'
+  } finally {
+    addressValidationLoading.value = false
+  }
+}
+
+function clearAddressValidationConfigFields() {
+  addressValidationGroupAddress.value = ''
+  addressValidationGroupCode.value = ''
+  addressValidationUsername.value = ''
+  addressValidationPassword.value = ''
+  addressValidationAppKey.value = ''
+  addressValidationAppSecret.value = ''
+}
+
+function generateAddressValidationConfig() {
+  if (!addressValidationFound.value) {
+    errorMessage.value = '请先查询到门店云入住配置'
+    return
+  }
+  const requiredFields = [
+    ['集团地址', addressValidationGroupAddress.value],
+    ['user', addressValidationUsername.value],
+    ['password', addressValidationPassword.value],
+    ['appKey', addressValidationAppKey.value],
+    ['appSecret', addressValidationAppSecret.value]
+  ]
+  const missingFieldNames = requiredFields.filter(([, value]) => !value.trim()).map(([fieldName]) => fieldName)
+  if (missingFieldNames.length > 0) {
+    errorMessage.value = `请先填写：${missingFieldNames.join('、')}`
+    return
+  }
+  if (!addressValidationGroupCode.value.trim()) {
+    errorMessage.value = '原配置缺少集团代码，无法生成完整云入住配置'
+    return
+  }
+  addressValidationGeneratedText.value = [
+    addressValidationGroupAddress.value.trim(),
+    addressValidationGroupCode.value.trim(),
+    addressValidationUsername.value.trim(),
+    addressValidationPassword.value.trim(),
+    addressValidationAppKey.value.trim(),
+    addressValidationAppSecret.value.trim()
+  ].join(';')
+  addressValidationCopyMessage.value = ''
+}
+
+async function copyAddressValidationConfig() {
+  if (!addressValidationGeneratedText.value) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(addressValidationGeneratedText.value)
+    addressValidationCopyMessage.value = '已复制'
+  } catch {
+    errorMessage.value = '复制失败，请手动选择云入住配置复制'
+  }
 }
 
 function displayUserType(userType: UserAccount['userType']) {
@@ -423,7 +709,7 @@ async function nextUserPage() {
         </ul>
       </aside>
 
-      <section class="login-card">
+      <form class="login-card" @submit.prevent="handleLogin">
         <p class="eyebrow">登录系统</p>
         <h2 class="login-title">绿云运维控制台</h2>
         <label>
@@ -434,10 +720,10 @@ async function nextUserPage() {
           密码
           <input v-model="password" autocomplete="current-password" type="password" />
         </label>
-        <button class="primary-button" :disabled="loading" @click="handleLogin">
+        <button class="primary-button" type="submit" :disabled="loading">
           {{ loading ? '登录中...' : '登录' }}
         </button>
-      </section>
+      </form>
 
       <div v-if="errorMessage" class="dialog-backdrop" role="presentation">
         <section class="error-dialog" role="alertdialog" aria-modal="true" aria-labelledby="error-dialog-title">
@@ -502,6 +788,24 @@ async function nextUserPage() {
             用户列表
             <small>USER LIST</small>
           </button>
+          <template v-else-if="isCloudCheckinProject">
+            <button
+              :class="['feature-item', { active: activeCloudCheckinFeature === 'store-rop-registration' }]"
+              type="button"
+              @click="activeCloudCheckinFeature = 'store-rop-registration'"
+            >
+              门店 ROP 信息注册
+              <small>STORE ROP REGISTER</small>
+            </button>
+            <button
+              :class="['feature-item', { active: activeCloudCheckinFeature === 'address-validation' }]"
+              type="button"
+              @click="activeCloudCheckinFeature = 'address-validation'"
+            >
+              地址校验
+              <small>ADDRESS VALIDATION</small>
+            </button>
+          </template>
           <p v-else class="feature-empty">功能模块待补充</p>
         </aside>
 
@@ -576,6 +880,201 @@ async function nextUserPage() {
             </div>
           </section>
         </div>
+
+        <section
+          v-else-if="isCloudCheckinProject && activeCloudCheckinFeature === 'store-rop-registration'"
+          class="workspace-panel cloud-feature-panel"
+        >
+          <p class="eyebrow">CLOUD CHECK-IN</p>
+          <h3>门店 ROP 信息注册</h3>
+          <form class="rop-registration-form" @submit.prevent="submitRopRegistration">
+            <section class="rop-form-section">
+              <div class="rop-section-heading">
+                <span class="rop-step">01</span>
+                <div>
+                  <h4>ROP 认证信息</h4>
+                  <p>上传认证信息文件，或直接粘贴完整认证内容；识别到 hotelGroupCode 后会自动带出集团信息。</p>
+                </div>
+              </div>
+              <div class="rop-auth-actions">
+                <label class="rop-upload-button">
+                  上传认证文件
+                  <input
+                    accept=".sycs,.txt,.json,.properties,.conf"
+                    type="file"
+                    @change="handleRopAuthFileChange"
+                  />
+                </label>
+                <button class="ghost-button rop-manual-button" type="button" @click="openRopAuthManualDialog">
+                  手动输入
+                </button>
+              </div>
+              <div class="rop-auth-preview">
+                <span class="rop-auth-label">当前认证信息</span>
+                <strong v-if="ropAuthFileName">{{ ropAuthFileName }}</strong>
+                <strong v-else-if="ropAuthManualContent.trim()">已手动输入认证内容</strong>
+                <span v-else>暂未提供</span>
+              </div>
+            </section>
+
+            <section class="rop-form-section">
+              <div class="rop-section-heading">
+                <span class="rop-step">02</span>
+                <div>
+                  <h4>集团信息</h4>
+                  <p>集团代码可由 ROP 认证信息自动带出，也可以手动填写或修正；集团地址支持查询后继续编辑。</p>
+                </div>
+              </div>
+              <div class="rop-query-row">
+                <label>
+                  集团代码
+                  <input
+                    v-model.trim="ropGroupCode"
+                    autocomplete="off"
+                    placeholder="例如 DHYTJSG"
+                    @keyup.enter="lookupRopGroupAddress()"
+                  />
+                </label>
+                <button
+                  class="primary-button rop-query-button"
+                  type="button"
+                  :disabled="ropGroupLookupLoading"
+                  @click="lookupRopGroupAddress()"
+                >
+                  {{ ropGroupLookupLoading ? '查询中...' : '查询' }}
+                </button>
+              </div>
+              <p v-if="ropGroupLookupMessage" class="rop-query-message">{{ ropGroupLookupMessage }}</p>
+              <label class="rop-full-field">
+                集团地址
+                <input
+                  v-model.trim="ropGroupAddress"
+                  autocomplete="off"
+                  placeholder="请输入集团地址，例如 https://group.example.com"
+                />
+              </label>
+            </section>
+
+            <div class="rop-form-footer">
+              <button class="primary-button rop-submit-button" type="submit">生成</button>
+            </div>
+          </form>
+          <section v-if="ropRegistrationEncryptedText" class="rop-result-panel">
+            <div class="rop-result-header">
+              <div>
+                <p class="eyebrow">REGISTER RESULT</p>
+                <h4>门店云入住信息</h4>
+              </div>
+              <div class="rop-copy-actions">
+                <span v-if="ropCopyMessage">{{ ropCopyMessage }}</span>
+                <button class="primary-button rop-copy-button" type="button" @click="copyRopRegistrationEncryptedText">
+                  复制注册信息
+                </button>
+              </div>
+            </div>
+            <textarea
+              class="rop-result-textarea"
+              :value="ropRegistrationEncryptedText"
+              readonly
+              rows="5"
+            ></textarea>
+          </section>
+        </section>
+
+        <section
+          v-else-if="isCloudCheckinProject && activeCloudCheckinFeature === 'address-validation'"
+          class="workspace-panel cloud-feature-panel"
+        >
+          <p class="eyebrow">CLOUD CHECK-IN</p>
+          <h3>地址校验</h3>
+          <form class="rop-registration-form" @submit.prevent="lookupAddressValidationStoreConfig">
+            <section class="rop-form-section">
+              <div class="rop-section-heading">
+                <span class="rop-step">01</span>
+                <div>
+                  <h4>门店配置查询</h4>
+                  <p>输入门店代码查询该酒店是否已有云入住配置，查到后可继续手动修正参数。</p>
+                </div>
+              </div>
+              <div class="rop-query-row">
+                <label>
+                  门店代码
+                  <input
+                    v-model.trim="addressValidationStoreCode"
+                    autocomplete="off"
+                    placeholder="例如 LOHKAH001"
+                  />
+                </label>
+                <button
+                  class="primary-button rop-query-button"
+                  type="submit"
+                  :disabled="addressValidationLoading"
+                >
+                  {{ addressValidationLoading ? '查询中...' : '查询' }}
+                </button>
+              </div>
+              <p v-if="addressValidationMessage" class="rop-query-message">{{ addressValidationMessage }}</p>
+            </section>
+          </form>
+
+          <section v-if="addressValidationFound" class="rop-form-section">
+            <div class="rop-section-heading">
+              <span class="rop-step">02</span>
+              <div>
+                <h4>配置参数</h4>
+                <p>查询到的配置会自动拆分到下方字段，确认或修正后点击生成。</p>
+              </div>
+            </div>
+            <div class="address-config-grid">
+              <label class="address-config-full">
+                集团地址
+                <input v-model.trim="addressValidationGroupAddress" autocomplete="off" />
+              </label>
+              <label>
+                user
+                <input v-model.trim="addressValidationUsername" autocomplete="off" />
+              </label>
+              <label>
+                password
+                <input v-model.trim="addressValidationPassword" autocomplete="off" />
+              </label>
+              <label>
+                appKey
+                <input v-model.trim="addressValidationAppKey" autocomplete="off" />
+              </label>
+              <label>
+                appSecret
+                <input v-model.trim="addressValidationAppSecret" autocomplete="off" />
+              </label>
+            </div>
+            <div class="rop-form-footer">
+              <button class="primary-button rop-submit-button" type="button" @click="generateAddressValidationConfig">
+                生成
+              </button>
+            </div>
+          </section>
+
+          <section v-if="addressValidationGeneratedText" class="rop-result-panel">
+            <div class="rop-result-header">
+              <div>
+                <p class="eyebrow">CONFIG RESULT</p>
+                <h4>云入住配置</h4>
+              </div>
+              <div class="rop-copy-actions">
+                <span v-if="addressValidationCopyMessage">{{ addressValidationCopyMessage }}</span>
+                <button class="primary-button rop-copy-button" type="button" @click="copyAddressValidationConfig">
+                  复制配置
+                </button>
+              </div>
+            </div>
+            <textarea
+              class="rop-result-textarea"
+              :value="addressValidationGeneratedText"
+              readonly
+              rows="4"
+            ></textarea>
+          </section>
+        </section>
 
         <section v-else class="workspace-panel">
           <p class="eyebrow">{{ selectedProject?.code }}</p>
@@ -692,6 +1191,30 @@ async function nextUserPage() {
           </button>
         </div>
       </section>
+    </div>
+
+    <div v-if="ropAuthManualDialogVisible" class="dialog-backdrop" role="presentation">
+      <form class="form-dialog rop-manual-dialog" @submit.prevent="confirmRopAuthManualInput">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">ROP AUTH</p>
+            <h3>手动输入 ROP 认证信息</h3>
+          </div>
+          <button class="icon-close-button" type="button" aria-label="关闭" @click="closeRopAuthManualDialog">×</button>
+        </div>
+        <label>
+          认证信息内容
+          <textarea
+            v-model="ropAuthManualContent"
+            placeholder="请粘贴 ROP 认证信息内容，支持完整配置文本或认证参数片段"
+            rows="10"
+          ></textarea>
+        </label>
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" @click="closeRopAuthManualDialog">取消</button>
+          <button class="primary-button dialog-submit-button" type="submit">确认使用</button>
+        </div>
+      </form>
     </div>
 
     <div v-if="errorMessage && currentView !== 'login'" class="dialog-backdrop" role="presentation">

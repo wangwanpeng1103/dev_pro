@@ -9,7 +9,8 @@ INSERT INTO ops_project (project_code, project_name, description, icon_text, sor
 VALUES
     ('user-admin', '用户管理', '管理用户、临时用户和项目授权', 'UA', 10, 1),
     ('mihotel', 'mihotel', 'mihotel 运维项目模块', 'MI', 20, 1),
-    ('ihotel', 'ihotel', 'ihotel 运维项目模块', 'IH', 30, 1)
+    ('ihotel', 'ihotel', 'ihotel 运维项目模块', 'IH', 30, 1),
+    ('cloud-checkin', '云入住', '云入住运维项目模块', 'CI', 40, 1)
 ON DUPLICATE KEY UPDATE
     project_name = VALUES(project_name),
     description = VALUES(description),
@@ -20,7 +21,7 @@ ON DUPLICATE KEY UPDATE
 INSERT IGNORE INTO ops_user_project_permission (user_id, project_id)
 SELECT u.id, p.id
 FROM sys_user u
-JOIN ops_project p ON p.project_code IN ('user-admin', 'mihotel', 'ihotel')
+JOIN ops_project p ON p.project_code IN ('user-admin', 'mihotel', 'ihotel', 'cloud-checkin')
 WHERE u.username = 'admin';
 
 INSERT INTO sys_user (username, display_name, password_hash, user_type, enabled)
@@ -84,5 +85,5 @@ ON DUPLICATE KEY UPDATE
 INSERT IGNORE INTO ops_user_project_permission (user_id, project_id)
 SELECT u.id, p.id
 FROM sys_user u
-JOIN ops_project p ON p.project_code IN ('mihotel', 'ihotel')
+JOIN ops_project p ON p.project_code IN ('mihotel', 'ihotel', 'cloud-checkin')
 WHERE u.username LIKE 'demo-user-%';
