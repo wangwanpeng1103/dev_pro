@@ -1095,6 +1095,151 @@ small,
   width: min(720px, calc(100% - 32px));
 }
 
+.mihotel-system-param-panel {
+  display: grid;
+  gap: 18px;
+  width: calc(100% - 192px);
+  margin: 34px 96px;
+}
+
+.mihotel-system-param-header,
+.system-param-result-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.mihotel-system-param-header h3 {
+  margin-top: 6px;
+}
+
+.system-param-query-bar {
+  display: grid;
+  grid-template-columns: 180px 190px auto auto auto;
+  align-items: end;
+  gap: 12px;
+  width: min(940px, 100%);
+  padding: 14px 16px;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.system-param-query-bar label {
+  min-width: 0;
+  color: #152033;
+  font-weight: 700;
+}
+
+.system-param-query-bar input,
+.system-param-query-bar select {
+  font-weight: 400;
+}
+
+.system-param-query-button {
+  min-width: 88px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.system-param-tool-button {
+  min-width: 126px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.system-param-result-meta {
+  min-height: 20px;
+  justify-content: flex-start;
+  color: #5c789a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.system-param-table {
+  overflow: hidden;
+  border: 1px solid #edf1f5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.system-param-table-head,
+.system-param-table-row {
+  display: grid;
+  grid-template-columns: 0.5fr 0.9fr 1.75fr 0.65fr 0.42fr 1.25fr 76px;
+  gap: 12px;
+  align-items: start;
+  padding: 13px 16px;
+}
+
+.system-param-table-head {
+  color: #5c789a;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.system-param-table-row {
+  border-top: 1px solid #edf1f5;
+  color: #344054;
+  font-size: 14px;
+}
+
+.system-param-table-row strong {
+  color: #152033;
+  word-break: break-word;
+}
+
+.system-param-table-row span,
+.system-param-table-row strong {
+  min-width: 0;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.system-param-value {
+  color: #26364f;
+  font-family:
+    "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
+.system-param-row-button {
+  min-height: 28px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.system-param-dialog {
+  width: min(760px, calc(100% - 32px));
+}
+
+.system-param-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.system-param-form-full {
+  grid-column: 1 / -1;
+}
+
+.system-param-form-grid textarea {
+  min-height: 86px;
+  font-family:
+    "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
 .mihotel-cache-panel {
   display: grid;
   gap: 18px;
@@ -1159,8 +1304,10 @@ small,
 }
 
 .cache-action-button {
-  min-width: 112px;
-  padding: 0 18px;
+  min-width: 88px;
+  min-height: 34px;
+  padding: 0 14px;
+  font-size: 14px;
 }
 
 .cache-node-list {
@@ -1368,9 +1515,31 @@ small,
 
   .mihotel-cache-header,
   .cache-group-heading,
-  .mihotel-cache-summary {
+  .mihotel-cache-summary,
+  .mihotel-system-param-header,
+  .system-param-query-bar,
+  .system-param-result-meta {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .system-param-query-bar {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .system-param-table-head {
+    display: none;
+  }
+
+  .system-param-table-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 6px;
+  }
+
+  .system-param-table-row span {
+    white-space: normal;
   }
 
   .cache-node {

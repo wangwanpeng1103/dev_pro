@@ -1,22 +1,29 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   createPermanentUser,
   createTemporaryUser,
+  createMihotelSystemParam,
   deleteUser,
   extendTemporaryUserTime,
   clearMihotelCacheTarget,
   listProjects,
   listUsers,
   listMihotelCacheTargets,
+  listMihotelSystemParamEnvironments,
   login,
   lookupCloudCheckinGroupAddress,
   lookupCloudCheckinStoreConfig,
+  queryMihotelSystemParams,
   updateUser,
+  updateMihotelSystemParam,
   updateUserPassword,
   type MihotelCacheClearResult,
   type MihotelCacheEnvironment,
   type MihotelCacheTarget,
+  type MihotelSystemParamEnvironment,
+  type MihotelSystemParamEnvironmentCode,
+  type MihotelSystemParamRecord,
   type ProjectModule,
   type UserType,
   type UserAccount
@@ -25,9 +32,21 @@ import {
 type ViewName = 'login' | 'projects' | 'admin' | 'project'
 type AdminFeature = 'user-list'
 type CloudCheckinFeature = 'store-rop-registration' | 'address-validation'
-type MihotelFeature = 'clear-cache'
+type MihotelFeature = 'system-params' | 'clear-cache'
 type CacheClearStatus = 'idle' | 'running' | 'success' | 'failed'
 type UserDialogMode = 'create' | 'edit'
+type SystemParamDialogMode = 'create' | 'edit'
+type ConsoleSession = {
+  currentView: ViewName
+  currentUser: UserAccount
+  projects: ProjectModule[]
+  selectedProject: ProjectModule | null
+  activeAdminFeature: AdminFeature
+  activeCloudCheckinFeature: CloudCheckinFeature
+  activeMihotelFeature: MihotelFeature
+}
+
+const consoleSessionStorageKey = 'devpro-console-session'
 
 const currentView = ref<ViewName>('login')
 const username = ref('')
@@ -41,7 +60,7 @@ const users = ref<UserAccount[]>([])
 const selectedProject = ref<ProjectModule | null>(null)
 const activeAdminFeature = ref<AdminFeature>('user-list')
 const activeCloudCheckinFeature = ref<CloudCheckinFeature>('store-rop-registration')
-const activeMihotelFeature = ref<MihotelFeature>('clear-cache')
+const activeMihotelFeature = ref<MihotelFeature>('system-params')
 const userPage = ref(1)
 const userPageSize = 10
 const userTotal = ref(0)
@@ -95,6 +114,27 @@ const mihotelCacheRunning = ref(false)
 const mihotelCacheMessage = ref('')
 const mihotelCacheStatuses = ref<Record<string, CacheClearStatus>>({})
 const mihotelCacheResults = ref<Record<string, MihotelCacheClearResult>>({})
+const mihotelSystemParamEnvironments = ref<MihotelSystemParamEnvironment[]>([])
+const mihotelSystemParamEnvironment = ref<MihotelSystemParamEnvironmentCode>('TRUNK')
+const mihotelSystemParamGroupCode = ref('')
+const mihotelSystemParamLoading = ref(false)
+const mihotelSystemParamMessage = ref('')
+const mihotelSystemParamRecords = ref<MihotelSystemParamRecord[]>([])
+const mihotelSystemParamLastQuery = ref('')
+const systemParamDialogVisible = ref(false)
+const systemParamDialogMode = ref<SystemParamDialogMode>('create')
+const systemParamSaving = ref(false)
+const systemParamForm = ref({
+  id: null as number | null,
+  hotelGroupCode: '',
+  catalog: '',
+  item: '',
+  setValue: '',
+  defValue: '',
+  descript: '',
+  descriptEn: '',
+  ctrlStr: ''
+})
 
 const isAdmin = computed(() => currentUser.value?.userType === 'ADMIN')
 const visibleProjects = computed(() => projects.value.filter((project) => project.enabled))
@@ -116,6 +156,22 @@ const pageTitle = computed(() => {
   return selectedProject.value?.name ?? '绿云运维控制台'
 })
 
+restoreConsoleSession()
+
+watch(
+  [
+    currentView,
+    currentUser,
+    projects,
+    selectedProject,
+    activeAdminFeature,
+    activeCloudCheckinFeature,
+    activeMihotelFeature
+  ],
+  saveConsoleSession,
+  { deep: true }
+)
+
 async function handleLogin() {
   errorMessage.value = ''
   loading.value = true
@@ -124,6 +180,7 @@ async function handleLogin() {
     currentUser.value = result.user
     projects.value = result.projects
     currentView.value = 'projects'
+    saveConsoleSession()
     if (isAdmin.value) {
       await refreshAdminData()
     }
@@ -160,7 +217,8 @@ async function openProject(project: ProjectModule) {
     resetRopRegistrationForm()
     resetAddressValidationForm()
   } else if (project.code === 'mihotel') {
-    activeMihotelFeature.value = 'clear-cache'
+    activeMihotelFeature.value = 'system-params'
+    void loadMihotelSystemParamEnvironments()
     void loadMihotelCacheTargets()
   }
   currentView.value = project.code === 'user-admin' ? 'admin' : 'project'
@@ -170,11 +228,15 @@ function logout() {
   currentUser.value = null
   selectedProject.value = null
   currentView.value = 'login'
+  clearConsoleSession()
 }
 
 function backToProjects() {
   resetRopRegistrationForm()
   resetAddressValidationForm()
+  if (selectedProject.value?.code === 'mihotel') {
+    resetMihotelWorkbenchState()
+  }
   selectedProject.value = null
   currentView.value = 'projects'
 }
@@ -185,6 +247,78 @@ function closeErrorDialog() {
 
 function closeSuccessDialog() {
   successMessage.value = ''
+}
+
+function restoreConsoleSession() {
+  try {
+    const sessionText = localStorage.getItem(consoleSessionStorageKey)
+    if (!sessionText) {
+      return
+    }
+    const session = JSON.parse(sessionText) as Partial<ConsoleSession>
+    if (!session.currentUser || !Array.isArray(session.projects)) {
+      clearConsoleSession()
+      return
+    }
+    currentUser.value = session.currentUser
+    projects.value = session.projects
+    selectedProject.value = session.selectedProject ?? null
+    activeAdminFeature.value = session.activeAdminFeature === 'user-list' ? session.activeAdminFeature : 'user-list'
+    activeCloudCheckinFeature.value = isCloudCheckinFeature(session.activeCloudCheckinFeature)
+      ? session.activeCloudCheckinFeature
+      : 'store-rop-registration'
+    activeMihotelFeature.value = isMihotelFeature(session.activeMihotelFeature)
+      ? session.activeMihotelFeature
+      : 'system-params'
+    currentView.value = normalizeRestoredView(session.currentView, selectedProject.value)
+    if (currentView.value === 'admin') {
+      void refreshAdminData()
+    }
+    if (selectedProject.value?.code === 'mihotel') {
+      void loadMihotelSystemParamEnvironments()
+      void loadMihotelCacheTargets()
+    }
+  } catch {
+    clearConsoleSession()
+  }
+}
+
+function saveConsoleSession() {
+  if (!currentUser.value) {
+    return
+  }
+  const session: ConsoleSession = {
+    currentView: currentView.value,
+    currentUser: currentUser.value,
+    projects: projects.value,
+    selectedProject: selectedProject.value,
+    activeAdminFeature: activeAdminFeature.value,
+    activeCloudCheckinFeature: activeCloudCheckinFeature.value,
+    activeMihotelFeature: activeMihotelFeature.value
+  }
+  localStorage.setItem(consoleSessionStorageKey, JSON.stringify(session))
+}
+
+function clearConsoleSession() {
+  localStorage.removeItem(consoleSessionStorageKey)
+}
+
+function normalizeRestoredView(viewName: ViewName | undefined, restoredProject: ProjectModule | null) {
+  if (viewName === 'admin' && restoredProject?.code === 'user-admin') {
+    return 'admin'
+  }
+  if (viewName === 'project' && restoredProject) {
+    return 'project'
+  }
+  return 'projects'
+}
+
+function isCloudCheckinFeature(feature?: string): feature is CloudCheckinFeature {
+  return feature === 'store-rop-registration' || feature === 'address-validation'
+}
+
+function isMihotelFeature(feature?: string): feature is MihotelFeature {
+  return feature === 'system-params' || feature === 'clear-cache'
 }
 
 function resetRopRegistrationForm() {
@@ -212,6 +346,187 @@ function resetAddressValidationForm() {
   addressValidationAppSecret.value = ''
   addressValidationGeneratedText.value = ''
   addressValidationCopyMessage.value = ''
+}
+
+function resetMihotelWorkbenchState() {
+  activeMihotelFeature.value = 'system-params'
+  mihotelSystemParamEnvironment.value = 'TRUNK'
+  mihotelSystemParamGroupCode.value = ''
+  mihotelSystemParamLoading.value = false
+  mihotelSystemParamMessage.value = ''
+  mihotelSystemParamRecords.value = []
+  mihotelSystemParamLastQuery.value = ''
+  systemParamDialogVisible.value = false
+  systemParamSaving.value = false
+  systemParamDialogMode.value = 'create'
+  systemParamForm.value = {
+    id: null,
+    hotelGroupCode: '',
+    catalog: '',
+    item: '',
+    setValue: '',
+    defValue: '',
+    descript: '',
+    descriptEn: '',
+    ctrlStr: ''
+  }
+  mihotelCacheTargets.value = []
+  mihotelCacheLoading.value = false
+  mihotelCacheRunning.value = false
+  mihotelCacheMessage.value = ''
+  mihotelCacheStatuses.value = {}
+  mihotelCacheResults.value = {}
+}
+
+async function loadMihotelSystemParamEnvironments() {
+  try {
+    const environments = await listMihotelSystemParamEnvironments()
+    mihotelSystemParamEnvironments.value = [...environments].sort((firstEnvironment, secondEnvironment) => {
+      return firstEnvironment.sortOrder - secondEnvironment.sortOrder
+    })
+    if (!mihotelSystemParamEnvironments.value.some((environment) => {
+      return environment.code === mihotelSystemParamEnvironment.value
+    })) {
+      mihotelSystemParamEnvironment.value = 'TRUNK'
+    }
+  } catch (error) {
+    mihotelSystemParamEnvironments.value = [
+      { code: 'TRUNK', name: '主干环境', sortOrder: 0 },
+      { code: 'LOCAL', name: '本地环境', sortOrder: 1 }
+    ]
+    mihotelSystemParamMessage.value = error instanceof Error
+      ? `系统参数环境加载失败：${error.message}`
+      : '系统参数环境加载失败，请稍后重试'
+  }
+}
+
+async function submitMihotelSystemParamQuery() {
+  const hotelGroupCode = mihotelSystemParamGroupCode.value.trim()
+  if (!hotelGroupCode) {
+    errorMessage.value = '请先输入集团代码'
+    return
+  }
+  mihotelSystemParamGroupCode.value = hotelGroupCode
+  mihotelSystemParamLoading.value = true
+  mihotelSystemParamMessage.value = ''
+  mihotelSystemParamRecords.value = []
+  try {
+    const result = await queryMihotelSystemParams(mihotelSystemParamEnvironment.value, hotelGroupCode)
+    mihotelSystemParamRecords.value = result.records
+    mihotelSystemParamLastQuery.value = `${result.environmentName} · ${result.hotelGroupCode}`
+    mihotelSystemParamMessage.value = result.records.length > 0
+      ? `已查询到 ${result.records.length} 条系统参数`
+      : '未查询到系统参数'
+  } catch (error) {
+    mihotelSystemParamMessage.value = error instanceof Error ? error.message : '系统参数查询失败'
+  } finally {
+    mihotelSystemParamLoading.value = false
+  }
+}
+
+function systemParamText(value: string | null | undefined) {
+  return value && value.trim() ? value : '-'
+}
+
+function openSystemParamCreatePlaceholder() {
+  systemParamDialogMode.value = 'create'
+  systemParamForm.value = {
+    id: null,
+    hotelGroupCode: mihotelSystemParamGroupCode.value.trim(),
+    catalog: '',
+    item: '',
+    setValue: '',
+    defValue: '',
+    descript: '',
+    descriptEn: '',
+    ctrlStr: ''
+  }
+  systemParamDialogVisible.value = true
+}
+
+function openSystemParamEditDialog(record: MihotelSystemParamRecord) {
+  if (!record.id) {
+    errorMessage.value = '该系统参数缺少主键，无法修改'
+    return
+  }
+  systemParamDialogMode.value = 'edit'
+  systemParamForm.value = {
+    id: record.id,
+    hotelGroupCode: record.hotelGroupCode ?? '',
+    catalog: record.catalog ?? '',
+    item: record.item ?? '',
+    setValue: record.setValue ?? '',
+    defValue: record.defValue ?? '',
+    descript: record.descript ?? '',
+    descriptEn: record.descriptEn ?? '',
+    ctrlStr: record.ctrlStr ?? ''
+  }
+  systemParamDialogVisible.value = true
+}
+
+function closeSystemParamDialog() {
+  if (systemParamSaving.value) {
+    return
+  }
+  systemParamDialogVisible.value = false
+}
+
+async function submitSystemParamForm() {
+  if (systemParamDialogMode.value === 'create') {
+    if (!systemParamForm.value.hotelGroupCode.trim()) {
+      errorMessage.value = '请填写集团代码'
+      return
+    }
+    if (!systemParamForm.value.catalog.trim()) {
+      errorMessage.value = '请填写参数分类'
+      return
+    }
+    if (!systemParamForm.value.item.trim()) {
+      errorMessage.value = '请填写参数项'
+      return
+    }
+  }
+  if (systemParamDialogMode.value === 'edit' && !systemParamForm.value.id) {
+    errorMessage.value = '系统参数主键不能为空'
+    return
+  }
+  systemParamSaving.value = true
+  try {
+    if (systemParamDialogMode.value === 'create') {
+      await createMihotelSystemParam({
+        environment: mihotelSystemParamEnvironment.value,
+        hotelGroupCode: systemParamForm.value.hotelGroupCode.trim(),
+        catalog: systemParamForm.value.catalog.trim(),
+        item: systemParamForm.value.item.trim(),
+        setValue: systemParamForm.value.setValue,
+        defValue: systemParamForm.value.defValue,
+        descript: systemParamForm.value.descript,
+        descriptEn: systemParamForm.value.descriptEn,
+        ctrlStr: ''
+      })
+      mihotelSystemParamGroupCode.value = systemParamForm.value.hotelGroupCode.trim()
+      successMessage.value = '系统参数新增成功'
+    } else {
+      await updateMihotelSystemParam({
+        environment: mihotelSystemParamEnvironment.value,
+        id: systemParamForm.value.id,
+        setValue: systemParamForm.value.setValue
+      })
+      successMessage.value = '系统参数修改成功'
+    }
+    systemParamDialogVisible.value = false
+    if (mihotelSystemParamGroupCode.value.trim()) {
+      await submitMihotelSystemParamQuery()
+    }
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '系统参数保存失败'
+  } finally {
+    systemParamSaving.value = false
+  }
+}
+
+function generatePmsSdkParamPlaceholder() {
+  mihotelSystemParamMessage.value = '生成 PMS SDK 参数功能待补充生成规则后接入'
 }
 
 async function loadMihotelCacheTargets() {
@@ -943,6 +1258,14 @@ async function nextUserPage() {
           </template>
           <template v-else-if="isMihotelProject">
             <button
+              :class="['feature-item', { active: activeMihotelFeature === 'system-params' }]"
+              type="button"
+              @click="activeMihotelFeature = 'system-params'"
+            >
+              系统参数管理
+              <small>SYSTEM PARAMS</small>
+            </button>
+            <button
               :class="['feature-item', { active: activeMihotelFeature === 'clear-cache' }]"
               type="button"
               @click="activeMihotelFeature = 'clear-cache'"
@@ -1222,6 +1545,86 @@ async function nextUserPage() {
           </section>
         </section>
 
+          <section
+            v-else-if="isMihotelProject && activeMihotelFeature === 'system-params'"
+            class="workspace-panel mihotel-system-param-panel"
+          >
+            <div class="mihotel-system-param-header">
+              <div>
+                <p class="eyebrow">SYSTEM PARAMS</p>
+                <h3>系统参数管理</h3>
+              </div>
+              <form class="system-param-query-bar" @submit.prevent="submitMihotelSystemParamQuery">
+                <label>
+                  查询环境
+                  <select v-model="mihotelSystemParamEnvironment">
+                    <option
+                      v-for="environment in mihotelSystemParamEnvironments"
+                      :key="environment.code"
+                      :value="environment.code"
+                    >
+                      {{ environment.name }}
+                    </option>
+                  </select>
+                </label>
+                <label>
+                  集团代码
+                  <input
+                    v-model.trim="mihotelSystemParamGroupCode"
+                    autocomplete="off"
+                    placeholder="请输入 hotelGroupCode"
+                  />
+                </label>
+                <button class="primary-button system-param-query-button" type="submit" :disabled="mihotelSystemParamLoading">
+                  {{ mihotelSystemParamLoading ? '查询中...' : '查询参数' }}
+                </button>
+                <button class="primary-button system-param-tool-button" type="button" @click="openSystemParamCreatePlaceholder">
+                  新增系统参数
+                </button>
+                <button class="primary-button system-param-tool-button" type="button" @click="generatePmsSdkParamPlaceholder">
+                  生成PMS SDK 参数
+                </button>
+              </form>
+            </div>
+
+            <div class="system-param-result-meta">
+              <span v-if="mihotelSystemParamLastQuery">{{ mihotelSystemParamLastQuery }}</span>
+              <span v-if="mihotelSystemParamMessage">{{ mihotelSystemParamMessage }}</span>
+            </div>
+
+            <div class="system-param-table">
+              <div class="system-param-table-head">
+                <span>分类</span>
+                <span>参数项</span>
+                <span>设置值</span>
+                <span>默认值</span>
+                <span>可修改</span>
+                <span>描述</span>
+                <span>操作</span>
+              </div>
+              <div
+                v-for="record in mihotelSystemParamRecords"
+                :key="`${record.catalog}-${record.item}-${record.hotelCode}`"
+                class="system-param-table-row"
+              >
+                <span :title="systemParamText(record.catalog)">{{ systemParamText(record.catalog) }}</span>
+                <strong :title="systemParamText(record.item)">{{ systemParamText(record.item) }}</strong>
+                <span class="system-param-value" :title="systemParamText(record.setValue)">{{ systemParamText(record.setValue) }}</span>
+                <span class="system-param-value" :title="systemParamText(record.defValue)">{{ systemParamText(record.defValue) }}</span>
+                <span :title="systemParamText(record.isMod)">{{ systemParamText(record.isMod) }}</span>
+                <span :title="systemParamText(record.descript)">{{ systemParamText(record.descript) }}</span>
+                <span>
+                  <button class="ghost-button system-param-row-button" type="button" @click="openSystemParamEditDialog(record)">
+                    修改
+                  </button>
+                </span>
+              </div>
+              <div v-if="!mihotelSystemParamLoading && mihotelSystemParamRecords.length === 0" class="empty-state">
+                输入集团代码后查询系统参数
+              </div>
+            </div>
+          </section>
+
           <section v-else-if="isMihotelProject && activeMihotelFeature === 'clear-cache'" class="workspace-panel mihotel-cache-panel">
             <div class="mihotel-cache-header">
               <div>
@@ -1464,6 +1867,56 @@ async function nextUserPage() {
         <div class="dialog-actions">
           <button class="ghost-button" type="button" @click="closeRopAuthManualDialog">取消</button>
           <button class="primary-button dialog-submit-button" type="submit">确认使用</button>
+        </div>
+      </form>
+    </div>
+
+    <div v-if="systemParamDialogVisible" class="dialog-backdrop" role="presentation">
+      <form class="form-dialog system-param-dialog" @submit.prevent="submitSystemParamForm">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">SYSTEM PARAM</p>
+            <h3>{{ systemParamDialogMode === 'create' ? '新增系统参数' : '修改系统参数' }}</h3>
+          </div>
+          <button class="icon-close-button" type="button" aria-label="关闭" @click="closeSystemParamDialog">×</button>
+        </div>
+
+        <div class="system-param-form-grid">
+          <label>
+            集团代码
+            <input v-model.trim="systemParamForm.hotelGroupCode" :disabled="systemParamDialogMode === 'edit'" autocomplete="off" required />
+          </label>
+          <label>
+            参数分类
+            <input v-model.trim="systemParamForm.catalog" :disabled="systemParamDialogMode === 'edit'" autocomplete="off" required />
+          </label>
+          <label>
+            参数项
+            <input v-model.trim="systemParamForm.item" :disabled="systemParamDialogMode === 'edit'" autocomplete="off" required />
+          </label>
+          <label>
+            默认值
+            <input v-model="systemParamForm.defValue" :disabled="systemParamDialogMode === 'edit'" autocomplete="off" />
+          </label>
+          <label class="system-param-form-full">
+            设置值
+            <textarea v-model="systemParamForm.setValue" rows="5"></textarea>
+          </label>
+          <label>
+            中文描述
+            <input v-model="systemParamForm.descript" :disabled="systemParamDialogMode === 'edit'" autocomplete="off" />
+          </label>
+          <label>
+            英文描述
+            <input v-model="systemParamForm.descriptEn" :disabled="systemParamDialogMode === 'edit'" autocomplete="off" />
+          </label>
+        </div>
+
+        <div class="dialog-actions">
+          <button class="ghost-button" type="button" @click="closeSystemParamDialog">取消</button>
+          <button class="primary-button dialog-submit-button" type="submit" :disabled="systemParamSaving">
+            {{ systemParamSaving ? '保存中...' : '保存' }}
+          </button>
         </div>
       </form>
     </div>

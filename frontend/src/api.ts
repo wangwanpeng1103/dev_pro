@@ -100,6 +100,49 @@ export interface MihotelCacheClearResult {
   message: string
 }
 
+export type MihotelSystemParamEnvironmentCode = 'TRUNK' | 'LOCAL'
+
+export interface MihotelSystemParamEnvironment {
+  code: MihotelSystemParamEnvironmentCode
+  name: string
+  sortOrder: number
+}
+
+export interface MihotelSystemParamRecord {
+  id: number | null
+  hotelGroupCode: string | null
+  hotelCode: string | null
+  catalog: string | null
+  item: string | null
+  setValue: string | null
+  defValue: string | null
+  isMod: string | null
+  licCode: string | null
+  descript: string | null
+  descriptEn: string | null
+  ctrlStr: string | null
+}
+
+export interface MihotelSystemParamQueryResult {
+  environment: MihotelSystemParamEnvironmentCode
+  environmentName: string
+  hotelGroupCode: string
+  records: MihotelSystemParamRecord[]
+}
+
+export interface MihotelSystemParamSaveRequest {
+  environment: MihotelSystemParamEnvironmentCode
+  id?: number | null
+  hotelGroupCode?: string | null
+  catalog?: string | null
+  item?: string | null
+  setValue?: string | null
+  defValue?: string | null
+  descript?: string | null
+  descriptEn?: string | null
+  ctrlStr?: string | null
+}
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? ''
 
 async function parseApiResponse<T>(response: Response): Promise<ApiResponse<T> | null> {
@@ -224,5 +267,34 @@ export function clearMihotelCacheTarget(targetCode: string): Promise<MihotelCach
   return request<MihotelCacheClearResult>('/api/mihotel/clear-cache', {
     method: 'POST',
     body: JSON.stringify({ targetCode })
+  })
+}
+
+export function listMihotelSystemParamEnvironments(): Promise<MihotelSystemParamEnvironment[]> {
+  return request<MihotelSystemParamEnvironment[]>('/api/mihotel/system-params/environments')
+}
+
+export function queryMihotelSystemParams(
+  environment: MihotelSystemParamEnvironmentCode,
+  hotelGroupCode: string
+): Promise<MihotelSystemParamQueryResult> {
+  const query = new URLSearchParams({
+    environment,
+    hotelGroupCode
+  })
+  return request<MihotelSystemParamQueryResult>(`/api/mihotel/system-params?${query.toString()}`)
+}
+
+export function createMihotelSystemParam(payload: MihotelSystemParamSaveRequest): Promise<void> {
+  return request<void>('/api/mihotel/system-params/create', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+}
+
+export function updateMihotelSystemParam(payload: MihotelSystemParamSaveRequest): Promise<void> {
+  return request<void>('/api/mihotel/system-params/update', {
+    method: 'POST',
+    body: JSON.stringify(payload)
   })
 }
