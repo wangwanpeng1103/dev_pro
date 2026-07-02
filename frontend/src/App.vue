@@ -809,113 +809,114 @@ async function nextUserPage() {
           <p v-else class="feature-empty">功能模块待补充</p>
         </aside>
 
-        <div v-if="currentView === 'admin'" class="content-area admin-grid project-content">
-          <section v-if="activeAdminFeature === 'user-list'" class="panel user-list-panel">
-            <div class="section-title user-list-header">
-              <h3>用户列表</h3>
-              <button class="primary-button add-user-button" type="button" @click="openCreateUserDialog">新增用户</button>
-            </div>
-            <div class="user-table">
-              <div class="user-table-head">
-                <span>用户名</span>
-                <span>账号</span>
-                <span>用户类型</span>
-                <span>状态</span>
-                <span>到期时间</span>
-                <span>操作</span>
+        <div class="workbench-content">
+          <div v-if="currentView === 'admin'" class="content-area admin-grid project-content">
+            <section v-if="activeAdminFeature === 'user-list'" class="panel user-list-panel">
+              <div class="section-title user-list-header">
+                <h3>用户列表</h3>
+                <button class="primary-button add-user-button" type="button" @click="openCreateUserDialog">新增用户</button>
               </div>
-              <div v-for="user in pagedUsers" :key="user.username" class="user-table-row">
-                <span>{{ user.displayName }}</span>
-                <span>{{ user.username }}</span>
-                <span>
-                  <span :class="userTypeBadgeClass(user.userType)">{{ displayUserType(user.userType) }}</span>
-                </span>
-                <span>
-                  <span :class="statusBadgeClass(user)">{{ displayUserStatus(user) }}</span>
-                </span>
-                <span class="expires-cell">
-                  <span v-if="isPermanentAccessUser(user)" :class="permanentBadgeClass(user)">
-                    <span class="permanent-badge-icon">∞</span>
-                    永久
+              <div class="user-table">
+                <div class="user-table-head">
+                  <span>用户名</span>
+                  <span>账号</span>
+                  <span>用户类型</span>
+                  <span>状态</span>
+                  <span>到期时间</span>
+                  <span>操作</span>
+                </div>
+                <div v-for="user in pagedUsers" :key="user.username" class="user-table-row">
+                  <span>{{ user.displayName }}</span>
+                  <span>{{ user.username }}</span>
+                  <span>
+                    <span :class="userTypeBadgeClass(user.userType)">{{ displayUserType(user.userType) }}</span>
                   </span>
-                  <span v-else>{{ formatDateTime(user.expiresAt) }}</span>
-                </span>
-                <div class="user-actions">
-                  <button
-                    v-if="canEditUserInfo(user)"
-                    class="ghost-button action-button"
-                    type="button"
-                    @click="openEditUserDialog(user)"
-                  >
-                    修改信息
-                  </button>
-                  <button
-                    v-if="canExtendTemporaryUser(user)"
-                    class="ghost-button action-button"
-                    type="button"
-                    @click="openExtendTimeDialog(user)"
-                  >
-                    增加时间
-                  </button>
-                  <button class="ghost-button action-button" type="button" @click="openPasswordDialog(user)">修改密码</button>
-                  <button
-                    v-if="!isCurrentUserRow(user)"
-                    class="danger-button action-button"
-                    type="button"
-                    @click="openDeleteDialog(user)"
-                  >
-                    删除用户
-                  </button>
+                  <span>
+                    <span :class="statusBadgeClass(user)">{{ displayUserStatus(user) }}</span>
+                  </span>
+                  <span class="expires-cell">
+                    <span v-if="isPermanentAccessUser(user)" :class="permanentBadgeClass(user)">
+                      <span class="permanent-badge-icon">∞</span>
+                      永久
+                    </span>
+                    <span v-else>{{ formatDateTime(user.expiresAt) }}</span>
+                  </span>
+                  <div class="user-actions">
+                    <button
+                      v-if="canEditUserInfo(user)"
+                      class="ghost-button action-button"
+                      type="button"
+                      @click="openEditUserDialog(user)"
+                    >
+                      修改信息
+                    </button>
+                    <button
+                      v-if="canExtendTemporaryUser(user)"
+                      class="ghost-button action-button"
+                      type="button"
+                      @click="openExtendTimeDialog(user)"
+                    >
+                      增加时间
+                    </button>
+                    <button class="ghost-button action-button" type="button" @click="openPasswordDialog(user)">修改密码</button>
+                    <button
+                      v-if="!isCurrentUserRow(user)"
+                      class="danger-button action-button"
+                      type="button"
+                      @click="openDeleteDialog(user)"
+                    >
+                      删除用户
+                    </button>
+                  </div>
                 </div>
+                <div v-if="pagedUsers.length === 0" class="empty-state">暂无用户</div>
               </div>
-              <div v-if="pagedUsers.length === 0" class="empty-state">暂无用户</div>
-            </div>
-            <div class="pagination-bar">
-              <span>共 {{ userTotal }} 条</span>
-              <div>
-                <button class="ghost-button" :disabled="userPage === 1" @click="previousUserPage">上一页</button>
-                <span>{{ userPage }} / {{ totalUserPages }}</span>
-                <button class="ghost-button" :disabled="userPage === totalUserPages" @click="nextUserPage">下一页</button>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <section
-          v-else-if="isCloudCheckinProject && activeCloudCheckinFeature === 'store-rop-registration'"
-          class="workspace-panel cloud-feature-panel"
-        >
-          <p class="eyebrow">CLOUD CHECK-IN</p>
-          <h3>门店 ROP 信息注册</h3>
-          <form class="rop-registration-form" @submit.prevent="submitRopRegistration">
-            <section class="rop-form-section">
-              <div class="rop-section-heading">
-                <span class="rop-step">01</span>
+              <div class="pagination-bar">
+                <span>共 {{ userTotal }} 条</span>
                 <div>
-                  <h4>ROP 认证信息</h4>
-                  <p>上传认证信息文件，或直接粘贴完整认证内容；识别到 hotelGroupCode 后会自动带出集团信息。</p>
+                  <button class="ghost-button" :disabled="userPage === 1" @click="previousUserPage">上一页</button>
+                  <span>{{ userPage }} / {{ totalUserPages }}</span>
+                  <button class="ghost-button" :disabled="userPage === totalUserPages" @click="nextUserPage">下一页</button>
                 </div>
-              </div>
-              <div class="rop-auth-actions">
-                <label class="rop-upload-button">
-                  上传认证文件
-                  <input
-                    accept=".sycs,.txt,.json,.properties,.conf"
-                    type="file"
-                    @change="handleRopAuthFileChange"
-                  />
-                </label>
-                <button class="ghost-button rop-manual-button" type="button" @click="openRopAuthManualDialog">
-                  手动输入
-                </button>
-              </div>
-              <div class="rop-auth-preview">
-                <span class="rop-auth-label">当前认证信息</span>
-                <strong v-if="ropAuthFileName">{{ ropAuthFileName }}</strong>
-                <strong v-else-if="ropAuthManualContent.trim()">已手动输入认证内容</strong>
-                <span v-else>暂未提供</span>
               </div>
             </section>
+          </div>
+
+          <section
+            v-else-if="isCloudCheckinProject && activeCloudCheckinFeature === 'store-rop-registration'"
+            class="workspace-panel cloud-feature-panel"
+          >
+            <p class="eyebrow">CLOUD CHECK-IN</p>
+            <h3>门店 ROP 信息注册</h3>
+            <form class="rop-registration-form" @submit.prevent="submitRopRegistration">
+              <section class="rop-form-section">
+                <div class="rop-section-heading">
+                  <span class="rop-step">01</span>
+                  <div>
+                    <h4>ROP 认证信息</h4>
+                    <p>上传认证信息文件，或直接粘贴完整认证内容；识别到 hotelGroupCode 后会自动带出集团信息。</p>
+                  </div>
+                </div>
+                <div class="rop-auth-actions">
+                  <label class="rop-upload-button">
+                    上传认证文件
+                    <input
+                      accept=".sycs,.txt,.json,.properties,.conf"
+                      type="file"
+                      @change="handleRopAuthFileChange"
+                    />
+                  </label>
+                  <button class="ghost-button rop-manual-button" type="button" @click="openRopAuthManualDialog">
+                    手动输入
+                  </button>
+                </div>
+                <div class="rop-auth-preview">
+                  <span class="rop-auth-label">当前认证信息</span>
+                  <strong v-if="ropAuthFileName">{{ ropAuthFileName }}</strong>
+                  <strong v-else-if="ropAuthManualContent.trim()">已手动输入认证内容</strong>
+                  <span v-else>暂未提供</span>
+                </div>
+              </section>
 
             <section class="rop-form-section">
               <div class="rop-section-heading">
@@ -1076,11 +1077,12 @@ async function nextUserPage() {
           </section>
         </section>
 
-        <section v-else class="workspace-panel">
-          <p class="eyebrow">{{ selectedProject?.code }}</p>
-          <h3>运维工作区骨架</h3>
-          <p>这里后续承载 {{ selectedProject?.name }} 的具体运维工具。功能清单待你下次补充。</p>
-        </section>
+          <section v-else class="workspace-panel">
+            <p class="eyebrow">{{ selectedProject?.code }}</p>
+            <h3>运维工作区骨架</h3>
+            <p>这里后续承载 {{ selectedProject?.name }} 的具体运维工具。功能清单待你下次补充。</p>
+          </section>
+        </div>
       </div>
     </section>
 

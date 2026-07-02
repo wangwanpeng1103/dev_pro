@@ -275,7 +275,10 @@ select:disabled {
 }
 
 .console-shell {
-  min-height: 100vh;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 84px minmax(0, 1fr);
+  overflow: hidden;
   background: #f4f7fa;
 }
 
@@ -336,7 +339,8 @@ select:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 84px;
+  min-height: 0;
+  height: 84px;
   padding: 16px 32px;
   border-bottom: 1px solid #dde5ee;
   background: #ffffff;
@@ -434,18 +438,31 @@ select:disabled {
 }
 
 .project-workbench {
-  min-height: calc(100vh - 84px);
+  min-height: 0;
+  height: 100%;
   display: grid;
   grid-template-columns: 286px 1fr;
+  overflow: hidden;
 }
 
 .feature-sidebar {
   display: grid;
   align-content: start;
   gap: 10px;
+  min-height: 0;
+  height: 100%;
   padding: 24px 16px;
+  overflow: hidden;
   color: #ffffff;
   background: #070d1d;
+}
+
+.workbench-content {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .sidebar-back {
@@ -874,7 +891,7 @@ small,
   width: min(860px, calc(100% - 64px));
   align-self: start;
   justify-self: center;
-  margin-top: 34px;
+  margin: 34px auto;
   padding: 28px;
 }
 
@@ -1096,6 +1113,19 @@ small,
   .project-content {
     width: calc(100% - 32px);
     margin: 16px;
+  }
+
+  .console-shell {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .topbar {
+    height: auto;
+  }
+
+  .feature-sidebar {
+    height: auto;
+    overflow: visible;
   }
 
   .user-table-head {
