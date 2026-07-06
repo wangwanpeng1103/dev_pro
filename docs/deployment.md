@@ -36,7 +36,7 @@ MYSQL_PORT=3306
 后端默认连接 `jdbc:mysql://mysql:3306/${MYSQL_DATABASE}`。如确实需要覆盖连接地址，可额外配置：
 
 ```properties
-SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/dev_pro?useUnicode=true&characterEncoding=utf8mb4&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/dev_pro?useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
 SPRING_DATASOURCE_USERNAME=devpro
 SPRING_DATASOURCE_PASSWORD=数据库用户密码
 ```

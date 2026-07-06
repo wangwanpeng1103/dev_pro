@@ -1243,3 +1243,21 @@
 
 - 当前发布影响线上 `devPro` 前端、后端容器镜像和运行容器。
 - 生产 `.env`、数据库数据卷和真实敏感配置未写入 Git，也未在本次发布中重置。
+
+## 2026-07-02 修复生产登录失败的 JDBC 编码参数
+
+### 需求来源
+
+用户要求直接修复线上环境登录时报“服务暂时不可用”的问题，并重新发布后端容器验证恢复情况。
+
+### 变更摘要
+
+- 通过 SSH 登录线上服务器，确认 `devpro-backend` 登录查库时报错 `Unsupported character encoding 'utf8mb4'`，根因是生产默认 JDBC URL 中使用了 `characterEncoding=utf8mb4`。
+- 将 `docker-compose.prod.yml` 中后端默认 `SPRING_DATASOURCE_URL` 的 `characterEncoding` 从 `utf8mb4` 调整为 `utf8`，保留 `connectionCollation=utf8mb4_0900_ai_ci`。
+- 同步修正 `backend/src/main/resources/application-local.yml`、`.env.example` 和 `docs/deployment.md` 中同类 JDBC URL 示例，避免后续本地或线上继续复用错误参数。
+- 调整后重新发布线上后端容器，并再次核验容器状态、后端日志和登录链路。
+
+### 影响范围
+
+- 当前变更影响生产后端默认数据源连接参数，以及本地/部署示例中的 JDBC URL 示例。
+- 不改变 MySQL 容器字符集、表结构、排序规则和数据库数据，仅修正 JVM 可识别的 JDBC 编码参数。
