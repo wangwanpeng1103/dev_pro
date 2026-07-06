@@ -1297,3 +1297,18 @@
 
 - 当前发布影响线上 `devPro` 前端和后端镜像及运行容器。
 - 生产 `.env`、数据库数据卷和真实敏感配置未写入 Git，也未在本次发布中重置。
+### 2026-07-06 修复线上 mihotel 主干清缓存节点未配置
+#### 需求来源
+
+用户反馈线上 `mihotel` 清除缓存页面中主干环境显示 0 个服务，并提示主干清理目标未配置，需要排查原因。
+
+#### 变更摘要
+
+- 排查确认线上服务器 `.env` 缺少 `MIHOTEL_CLEAR_CACHE_TRUNK_TARGETS`、`MIHOTEL_CLEAR_CACHE_LOCAL_TARGETS` 和 `MIHOTEL_CLEAR_CACHE_READ_TIMEOUT_SECONDS` 配置，导致后端 `/api/mihotel/cache-targets` 返回空列表。
+- 将本地已验证的 mihotel 清缓存目标配置同步到服务器 `.env`，并仅重建后端容器使环境变量生效。
+- 修复后线上接口返回 4 个主干清缓存节点和 1 个本地清缓存节点。
+
+#### 影响范围
+
+- 当前变更仅影响线上服务器 `.env` 中的 mihotel 清缓存目标配置和后端容器运行环境。
+- 未修改代码、未重建前端、未重置生产 MySQL 数据卷，真实目标地址不写入仓库文件。
