@@ -36,6 +36,7 @@ type MihotelFeature = 'system-params' | 'clear-cache'
 type CacheClearStatus = 'idle' | 'running' | 'success' | 'failed'
 type UserDialogMode = 'create' | 'edit'
 type SystemParamDialogMode = 'create' | 'edit'
+type PmsSdkInputMode = 'upload' | 'manual'
 type ConsoleSession = {
   currentView: ViewName
   currentUser: UserAccount
@@ -135,6 +136,15 @@ const systemParamForm = ref({
   descriptEn: '',
   ctrlStr: ''
 })
+const pmsSdkDialogVisible = ref(false)
+const pmsSdkInputMode = ref<PmsSdkInputMode>('upload')
+const pmsSdkAuthFileName = ref('')
+const pmsSdkAuthFileContent = ref('')
+const pmsSdkManualContent = ref('')
+const pmsSdkGeneratedText = ref('')
+const pmsSdkMessage = ref('')
+const pmsSdkCopyMessage = ref('')
+const pmsSdkGenerating = ref(false)
 
 const isAdmin = computed(() => currentUser.value?.userType === 'ADMIN')
 const visibleProjects = computed(() => projects.value.filter((project) => project.enabled))
@@ -385,12 +395,25 @@ function resetMihotelWorkbenchState() {
     descriptEn: '',
     ctrlStr: ''
   }
+  resetPmsSdkDialogState()
   mihotelCacheTargets.value = []
   mihotelCacheLoading.value = false
   mihotelCacheRunning.value = false
   mihotelCacheMessage.value = ''
   mihotelCacheStatuses.value = {}
   mihotelCacheResults.value = {}
+}
+
+function resetPmsSdkDialogState() {
+  pmsSdkDialogVisible.value = false
+  pmsSdkInputMode.value = 'upload'
+  pmsSdkAuthFileName.value = ''
+  pmsSdkAuthFileContent.value = ''
+  pmsSdkManualContent.value = ''
+  pmsSdkGeneratedText.value = ''
+  pmsSdkMessage.value = ''
+  pmsSdkCopyMessage.value = ''
+  pmsSdkGenerating.value = false
 }
 
 function ensureAllowedMihotelSystemParamEnvironment() {
@@ -576,8 +599,122 @@ async function submitSystemParamForm() {
   }
 }
 
-function generatePmsSdkParamPlaceholder() {
-  mihotelSystemParamMessage.value = '生成 PMS SDK 参数功能待补充生成规则后接入'
+function openPmsSdkParamDialog() {
+  pmsSdkDialogVisible.value = true
+  pmsSdkMessage.value = ''
+  pmsSdkCopyMessage.value = ''
+}
+
+function closePmsSdkParamDialog() {
+  if (pmsSdkGenerating.value) {
+    return
+  }
+  pmsSdkDialogVisible.value = false
+}
+
+function switchPmsSdkInputMode(mode: PmsSdkInputMode) {
+  pmsSdkInputMode.value = mode
+  pmsSdkMessage.value = ''
+  pmsSdkCopyMessage.value = ''
+}
+
+async function handlePmsSdkAuthFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) {
+    return
+  }
+  try {
+    pmsSdkAuthFileName.value = file.name
+    pmsSdkAuthFileContent.value = await file.text()
+    pmsSdkManualContent.value = ''
+    pmsSdkGeneratedText.value = ''
+    pmsSdkCopyMessage.value = ''
+    pmsSdkMessage.value = '已读取认证文件'
+  } catch {
+    errorMessage.value = '认证文件读取失败，请重新上传或改为手动输入'
+  } finally {
+    input.value = ''
+  }
+}
+
+function pmsSdkAuthContent() {
+  return pmsSdkInputMode.value === 'manual'
+    ? pmsSdkManualContent.value.trim()
+    : pmsSdkAuthFileContent.value.trim()
+}
+
+function pmsSdkAuthSourceLabel() {
+  if (pmsSdkInputMode.value === 'manual') {
+    return pmsSdkManualContent.value.trim() ? '已手动输入认证内容' : '暂未提供'
+  }
+  return pmsSdkAuthFileName.value || '暂未提供'
+}
+
+async function generatePmsSdkParam() {
+  const authContent = pmsSdkAuthContent()
+  if (!authContent) {
+    errorMessage.value = '请上传或手动输入 ROP 认证信息'
+    return
+  }
+  const requiredFields = ['hotelGroupCode', 'hotelGroupDescript', 'appKey', 'appSecret', 'username', 'password']
+  const missingFields = requiredFields.filter((fieldName) => !extractRopField(authContent, fieldName))
+  if (missingFields.length > 0) {
+    errorMessage.value = `ROP 认证信息缺少字段：${missingFields.join('、')}`
+    return
+  }
+  const hotelGroupCode = extractRopField(authContent, 'hotelGroupCode')
+  pmsSdkGenerating.value = true
+  pmsSdkMessage.value = ''
+  pmsSdkCopyMessage.value = ''
+  try {
+    const result = await lookupCloudCheckinGroupAddress(hotelGroupCode)
+    if (!result.found || !result.groupAddress) {
+      pmsSdkGeneratedText.value = ''
+      pmsSdkMessage.value = `${hotelGroupCode} 未查询到集团地址，请先配置地址服务`
+      return
+    }
+    const pmsGroupAddress = normalizePmsGroupAddress(result.groupAddress)
+    pmsSdkGeneratedText.value = [
+      pmsGroupAddress,
+      extractRopField(authContent, 'appKey'),
+      extractRopField(authContent, 'appSecret'),
+      extractRopField(authContent, 'username'),
+      extractRopField(authContent, 'password')
+    ].join('|')
+    pmsSdkMessage.value = result.groupName
+      ? `已生成 ${result.groupName} 的 PMS SDK 参数`
+      : '已生成 PMS SDK 参数'
+  } catch (error) {
+    pmsSdkGeneratedText.value = ''
+    errorMessage.value = error instanceof Error ? error.message : 'PMS SDK 参数生成失败'
+  } finally {
+    pmsSdkGenerating.value = false
+  }
+}
+
+function normalizePmsGroupAddress(groupAddress: string) {
+  const addressParts = groupAddress.split(';')
+  const groupUrl = (addressParts.length > 1 ? addressParts[1] : addressParts[0]).trim()
+  const lastSlashIndex = groupUrl.lastIndexOf('/')
+  const protocolEndIndex = groupUrl.indexOf('://')
+  const minPathSlashIndex = protocolEndIndex >= 0 ? protocolEndIndex + 3 : 0
+  if (lastSlashIndex > minPathSlashIndex) {
+    return groupUrl.substring(0, lastSlashIndex)
+  }
+  return groupUrl
+}
+
+async function copyPmsSdkGeneratedText() {
+  if (!pmsSdkGeneratedText.value) {
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(pmsSdkGeneratedText.value)
+    pmsSdkCopyMessage.value = '已复制'
+  } catch {
+    errorMessage.value = '复制失败，请手动选择 PMS SDK 参数复制'
+  }
 }
 
 async function loadMihotelCacheTargets() {
@@ -1641,7 +1778,7 @@ async function nextUserPage() {
                 >
                   新增系统参数
                 </button>
-                <button class="primary-button system-param-tool-button" type="button" @click="generatePmsSdkParamPlaceholder">
+                <button class="primary-button system-param-tool-button" type="button" @click="openPmsSdkParamDialog">
                   生成PMS SDK 参数
                 </button>
               </form>
@@ -1934,6 +2071,86 @@ async function nextUserPage() {
           <button class="primary-button dialog-submit-button" type="submit">确认使用</button>
         </div>
       </form>
+    </div>
+
+    <div v-if="pmsSdkDialogVisible" class="dialog-backdrop" role="presentation">
+      <section class="form-dialog pms-sdk-dialog" role="dialog" aria-modal="true">
+        <div class="dialog-header">
+          <div>
+            <p class="eyebrow">PMS SDK PARAM</p>
+            <h3>生成 PMS SDK 参数</h3>
+          </div>
+          <button class="icon-close-button" type="button" aria-label="关闭" @click="closePmsSdkParamDialog">×</button>
+        </div>
+
+        <section class="rop-form-section">
+          <div class="pms-sdk-mode-tabs">
+            <label :class="['pms-sdk-mode-button', 'pms-sdk-upload-mode-button', pmsSdkInputMode === 'upload' ? 'active' : '']">
+              上传认证文件
+              <input
+                accept=".sycs,.txt,.json,.properties,.conf"
+                type="file"
+                @click="switchPmsSdkInputMode('upload')"
+                @change="handlePmsSdkAuthFileChange"
+              />
+            </label>
+            <button
+              :class="['pms-sdk-mode-button', pmsSdkInputMode === 'manual' ? 'active' : '']"
+              type="button"
+              @click="switchPmsSdkInputMode('manual')"
+            >
+              手动输入
+            </button>
+          </div>
+          <label v-if="pmsSdkInputMode === 'manual'" class="pms-sdk-manual-field">
+            认证信息内容
+            <textarea
+              v-model="pmsSdkManualContent"
+              placeholder="请粘贴 ROP 认证信息内容，支持完整配置文本或认证参数片段"
+              rows="9"
+              @input="pmsSdkGeneratedText = ''; pmsSdkCopyMessage = ''"
+            ></textarea>
+          </label>
+          <div class="rop-auth-preview">
+            <span class="rop-auth-label">当前认证信息</span>
+            <strong v-if="pmsSdkAuthSourceLabel() !== '暂未提供'">{{ pmsSdkAuthSourceLabel() }}</strong>
+            <span v-else>暂未提供</span>
+          </div>
+        </section>
+
+        <div class="pms-sdk-dialog-actions">
+          <span v-if="pmsSdkMessage">{{ pmsSdkMessage }}</span>
+          <button
+            class="primary-button rop-submit-button"
+            type="button"
+            :disabled="pmsSdkGenerating"
+            @click="generatePmsSdkParam"
+          >
+            {{ pmsSdkGenerating ? '生成中...' : '生成' }}
+          </button>
+        </div>
+
+        <section v-if="pmsSdkGeneratedText" class="rop-result-panel">
+          <div class="rop-result-header">
+            <div>
+              <p class="eyebrow">PARAM RESULT</p>
+              <h4>PMS SDK 参数</h4>
+            </div>
+            <div class="rop-copy-actions">
+              <span v-if="pmsSdkCopyMessage">{{ pmsSdkCopyMessage }}</span>
+              <button class="primary-button rop-copy-button" type="button" @click="copyPmsSdkGeneratedText">
+                复制参数
+              </button>
+            </div>
+          </div>
+          <textarea
+            class="rop-result-textarea"
+            :value="pmsSdkGeneratedText"
+            readonly
+            rows="4"
+          ></textarea>
+        </section>
+      </section>
     </div>
 
     <div v-if="systemParamDialogVisible" class="dialog-backdrop" role="presentation">

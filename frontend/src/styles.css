@@ -1095,6 +1095,70 @@ small,
   width: min(720px, calc(100% - 32px));
 }
 
+.pms-sdk-dialog {
+  display: grid;
+  gap: 18px;
+  width: min(920px, calc(100% - 48px));
+}
+
+.pms-sdk-mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pms-sdk-mode-button {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-height: 38px;
+  min-width: 120px;
+  padding: 0 18px;
+  border: 1px solid #cbd8e5;
+  border-radius: 8px;
+  color: #163355;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pms-sdk-mode-button input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pms-sdk-mode-button.active {
+  border-color: #2f5bb7;
+  color: #ffffff;
+  background: #2f5bb7;
+}
+
+.pms-sdk-manual-field {
+  max-width: 100%;
+}
+
+.pms-sdk-manual-field textarea {
+  min-height: 180px;
+  font-family:
+    "Cascadia Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+}
+
+.pms-sdk-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  color: #5c789a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .mihotel-system-param-panel {
   display: grid;
   gap: 18px;
