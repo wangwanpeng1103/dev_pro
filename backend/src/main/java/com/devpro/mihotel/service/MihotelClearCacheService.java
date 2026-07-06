@@ -82,6 +82,16 @@ public class MihotelClearCacheService {
         }
     }
 
+    /**
+     * 判断目标节点是否属于本地环境，供控制层在调用真实清理前做权限拦截。
+     *
+     * @param targetCode 目标服务编码
+     * @return 是否为本地环境节点
+     */
+    public boolean isLocalTarget(String targetCode) {
+        return "LOCAL".equals(findTarget(targetCode).environment());
+    }
+
     private CacheTarget findTarget(String targetCode) {
         String normalizedTargetCode = Optional.ofNullable(targetCode)
                 .map(String::trim)

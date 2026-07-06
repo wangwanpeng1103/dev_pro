@@ -149,6 +149,13 @@ const mihotelTrunkCacheTargets = computed(() =>
 const mihotelLocalCacheTargets = computed(() =>
   mihotelCacheTargets.value.filter((target) => target.environment === 'LOCAL')
 )
+const visibleMihotelSystemParamEnvironments = computed(() => {
+  if (isAdmin.value) {
+    return mihotelSystemParamEnvironments.value
+  }
+  return mihotelSystemParamEnvironments.value.filter((environment) => environment.code !== 'LOCAL')
+})
+const canUseMihotelLocalTools = computed(() => isAdmin.value)
 const pageTitle = computed(() => {
   if (currentView.value === 'projects') {
     return '项目模块'
@@ -171,6 +178,14 @@ watch(
   saveConsoleSession,
   { deep: true }
 )
+
+watch(isAdmin, () => {
+  ensureAllowedMihotelSystemParamEnvironment()
+})
+
+watch(mihotelSystemParamEnvironment, () => {
+  ensureAllowedMihotelSystemParamEnvironment()
+})
 
 async function handleLogin() {
   errorMessage.value = ''
@@ -378,12 +393,30 @@ function resetMihotelWorkbenchState() {
   mihotelCacheResults.value = {}
 }
 
+function ensureAllowedMihotelSystemParamEnvironment() {
+  if (!isAdmin.value && mihotelSystemParamEnvironment.value === 'LOCAL') {
+    mihotelSystemParamEnvironment.value = 'TRUNK'
+  }
+}
+
+function currentOperatorUsername() {
+  return currentUser.value?.username ?? ''
+}
+
+function canEditMihotelSystemParam(record: MihotelSystemParamRecord) {
+  if (isAdmin.value) {
+    return true
+  }
+  return record.catalog === 'PMS' && record.item === 'INTERFACE_PARAMS'
+}
+
 async function loadMihotelSystemParamEnvironments() {
   try {
-    const environments = await listMihotelSystemParamEnvironments()
+    const environments = await listMihotelSystemParamEnvironments(currentOperatorUsername())
     mihotelSystemParamEnvironments.value = [...environments].sort((firstEnvironment, secondEnvironment) => {
       return firstEnvironment.sortOrder - secondEnvironment.sortOrder
     })
+    ensureAllowedMihotelSystemParamEnvironment()
     if (!mihotelSystemParamEnvironments.value.some((environment) => {
       return environment.code === mihotelSystemParamEnvironment.value
     })) {
@@ -394,6 +427,7 @@ async function loadMihotelSystemParamEnvironments() {
       { code: 'TRUNK', name: '主干环境', sortOrder: 0 },
       { code: 'LOCAL', name: '本地环境', sortOrder: 1 }
     ]
+    ensureAllowedMihotelSystemParamEnvironment()
     mihotelSystemParamMessage.value = error instanceof Error
       ? `系统参数环境加载失败：${error.message}`
       : '系统参数环境加载失败，请稍后重试'
@@ -402,6 +436,7 @@ async function loadMihotelSystemParamEnvironments() {
 
 async function submitMihotelSystemParamQuery() {
   const hotelGroupCode = mihotelSystemParamGroupCode.value.trim()
+  ensureAllowedMihotelSystemParamEnvironment()
   if (!hotelGroupCode) {
     errorMessage.value = '请先输入集团代码'
     return
@@ -411,7 +446,11 @@ async function submitMihotelSystemParamQuery() {
   mihotelSystemParamMessage.value = ''
   mihotelSystemParamRecords.value = []
   try {
-    const result = await queryMihotelSystemParams(mihotelSystemParamEnvironment.value, hotelGroupCode)
+    const result = await queryMihotelSystemParams(
+      mihotelSystemParamEnvironment.value,
+      hotelGroupCode,
+      currentOperatorUsername()
+    )
     mihotelSystemParamRecords.value = result.records
     mihotelSystemParamLastQuery.value = `${result.environmentName} · ${result.hotelGroupCode}`
     mihotelSystemParamMessage.value = result.records.length > 0
@@ -429,6 +468,10 @@ function systemParamText(value: string | null | undefined) {
 }
 
 function openSystemParamCreatePlaceholder() {
+  if (!isAdmin.value) {
+    errorMessage.value = '只有 admin 可以新增系统参数'
+    return
+  }
   systemParamDialogMode.value = 'create'
   systemParamForm.value = {
     id: null,
@@ -445,6 +488,10 @@ function openSystemParamCreatePlaceholder() {
 }
 
 function openSystemParamEditDialog(record: MihotelSystemParamRecord) {
+  if (!canEditMihotelSystemParam(record)) {
+    errorMessage.value = '当前用户只能修改 PMS / INTERFACE_PARAMS 配置'
+    return
+  }
   if (!record.id) {
     errorMessage.value = '该系统参数缺少主键，无法修改'
     return
@@ -495,6 +542,7 @@ async function submitSystemParamForm() {
     if (systemParamDialogMode.value === 'create') {
       await createMihotelSystemParam({
         environment: mihotelSystemParamEnvironment.value,
+        operatorUsername: currentOperatorUsername(),
         hotelGroupCode: systemParamForm.value.hotelGroupCode.trim(),
         catalog: systemParamForm.value.catalog.trim(),
         item: systemParamForm.value.item.trim(),
@@ -509,7 +557,10 @@ async function submitSystemParamForm() {
     } else {
       await updateMihotelSystemParam({
         environment: mihotelSystemParamEnvironment.value,
+        operatorUsername: currentOperatorUsername(),
         id: systemParamForm.value.id,
+        catalog: systemParamForm.value.catalog,
+        item: systemParamForm.value.item,
         setValue: systemParamForm.value.setValue
       })
       successMessage.value = '系统参数修改成功'
@@ -591,6 +642,10 @@ async function clearMihotelCache(environment: MihotelCacheEnvironment) {
   if (mihotelCacheRunning.value) {
     return
   }
+  if (environment === 'LOCAL' && !canUseMihotelLocalTools.value) {
+    errorMessage.value = '只有 admin 可以操作本地环境'
+    return
+  }
   const targets = environment === 'TRUNK' ? mihotelTrunkCacheTargets.value : mihotelLocalCacheTargets.value
   if (targets.length === 0) {
     errorMessage.value = environment === 'TRUNK' ? '主干缓存清理目标未配置' : '本地缓存清理目标未配置'
@@ -612,7 +667,7 @@ async function clearMihotelCache(environment: MihotelCacheEnvironment) {
       [target.code]: 'running'
     }
     try {
-      const result = await clearMihotelCacheTarget(target.code)
+      const result = await clearMihotelCacheTarget(target.code, currentOperatorUsername())
       mihotelCacheResults.value = {
         ...mihotelCacheResults.value,
         [target.code]: result
@@ -1559,7 +1614,7 @@ async function nextUserPage() {
                   查询环境
                   <select v-model="mihotelSystemParamEnvironment">
                     <option
-                      v-for="environment in mihotelSystemParamEnvironments"
+                      v-for="environment in visibleMihotelSystemParamEnvironments"
                       :key="environment.code"
                       :value="environment.code"
                     >
@@ -1578,7 +1633,12 @@ async function nextUserPage() {
                 <button class="primary-button system-param-query-button" type="submit" :disabled="mihotelSystemParamLoading">
                   {{ mihotelSystemParamLoading ? '查询中...' : '查询参数' }}
                 </button>
-                <button class="primary-button system-param-tool-button" type="button" @click="openSystemParamCreatePlaceholder">
+                <button
+                  v-if="isAdmin"
+                  class="primary-button system-param-tool-button"
+                  type="button"
+                  @click="openSystemParamCreatePlaceholder"
+                >
                   新增系统参数
                 </button>
                 <button class="primary-button system-param-tool-button" type="button" @click="generatePmsSdkParamPlaceholder">
@@ -1614,7 +1674,12 @@ async function nextUserPage() {
                 <span :title="systemParamText(record.isMod)">{{ systemParamText(record.isMod) }}</span>
                 <span :title="systemParamText(record.descript)">{{ systemParamText(record.descript) }}</span>
                 <span>
-                  <button class="ghost-button system-param-row-button" type="button" @click="openSystemParamEditDialog(record)">
+                  <button
+                    v-if="canEditMihotelSystemParam(record)"
+                    class="ghost-button system-param-row-button"
+                    type="button"
+                    @click="openSystemParamEditDialog(record)"
+                  >
                     修改
                   </button>
                 </span>
@@ -1646,7 +1711,7 @@ async function nextUserPage() {
                 <strong>主干环境</strong>
                 <span>{{ mihotelTrunkCacheTargets.length }} 个服务，按顺序逐个清理</span>
               </div>
-              <div>
+              <div v-if="canUseMihotelLocalTools">
                 <strong>本地环境</strong>
                 <span>{{ mihotelLocalCacheTargets.length }} 个服务，单独清理</span>
               </div>
@@ -1691,7 +1756,7 @@ async function nextUserPage() {
                 </div>
               </section>
 
-              <section class="cache-group-card">
+              <section v-if="canUseMihotelLocalTools" class="cache-group-card">
                 <div class="cache-group-heading">
                   <div>
                     <p class="eyebrow">LOCAL</p>

@@ -132,6 +132,7 @@ export interface MihotelSystemParamQueryResult {
 
 export interface MihotelSystemParamSaveRequest {
   environment: MihotelSystemParamEnvironmentCode
+  operatorUsername?: string | null
   id?: number | null
   hotelGroupCode?: string | null
   catalog?: string | null
@@ -263,25 +264,33 @@ export function listMihotelCacheTargets(): Promise<MihotelCacheTarget[]> {
   return request<MihotelCacheTarget[]>('/api/mihotel/cache-targets')
 }
 
-export function clearMihotelCacheTarget(targetCode: string): Promise<MihotelCacheClearResult> {
+export function clearMihotelCacheTarget(
+  targetCode: string,
+  operatorUsername?: string
+): Promise<MihotelCacheClearResult> {
   return request<MihotelCacheClearResult>('/api/mihotel/clear-cache', {
     method: 'POST',
-    body: JSON.stringify({ targetCode })
+    body: JSON.stringify({ targetCode, operatorUsername })
   })
 }
 
-export function listMihotelSystemParamEnvironments(): Promise<MihotelSystemParamEnvironment[]> {
-  return request<MihotelSystemParamEnvironment[]>('/api/mihotel/system-params/environments')
+export function listMihotelSystemParamEnvironments(operatorUsername?: string): Promise<MihotelSystemParamEnvironment[]> {
+  const query = operatorUsername ? `?operatorUsername=${encodeURIComponent(operatorUsername)}` : ''
+  return request<MihotelSystemParamEnvironment[]>(`/api/mihotel/system-params/environments${query}`)
 }
 
 export function queryMihotelSystemParams(
   environment: MihotelSystemParamEnvironmentCode,
-  hotelGroupCode: string
+  hotelGroupCode: string,
+  operatorUsername?: string
 ): Promise<MihotelSystemParamQueryResult> {
   const query = new URLSearchParams({
     environment,
     hotelGroupCode
   })
+  if (operatorUsername) {
+    query.set('operatorUsername', operatorUsername)
+  }
   return request<MihotelSystemParamQueryResult>(`/api/mihotel/system-params?${query.toString()}`)
 }
 
