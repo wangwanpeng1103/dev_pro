@@ -20,6 +20,7 @@ services:
       - ./database/seed/20260629_001_init_ops_console_seed.sql:/docker-entrypoint-initdb.d/002_seed.sql:ro
       - ./database/migration/20260702_001_add_cloud_checkin_project.sql:/docker-entrypoint-initdb.d/003_cloud_checkin_project.sql:ro
       - ./database/migration/20260702_002_fix_ops_console_utf8mb4.sql:/docker-entrypoint-initdb.d/004_fix_ops_console_utf8mb4.sql:ro
+      - ./database/migration/20260713_001_create_tmh_mock_company.sql:/docker-entrypoint-initdb.d/005_create_tmh_mock_company.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s

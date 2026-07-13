@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import TmhMockCompanyPanel from './TmhMockCompanyPanel.vue'
 import {
   createPermanentUser,
   createTemporaryUser,
@@ -33,6 +34,7 @@ type ViewName = 'login' | 'projects' | 'admin' | 'project'
 type AdminFeature = 'user-list'
 type CloudCheckinFeature = 'store-rop-registration' | 'address-validation'
 type MihotelFeature = 'system-params' | 'clear-cache'
+type IhotelFeature = 'tmh-mock-companies'
 type CacheClearStatus = 'idle' | 'running' | 'success' | 'failed'
 type UserDialogMode = 'create' | 'edit'
 type SystemParamDialogMode = 'create' | 'edit'
@@ -62,6 +64,7 @@ const selectedProject = ref<ProjectModule | null>(null)
 const activeAdminFeature = ref<AdminFeature>('user-list')
 const activeCloudCheckinFeature = ref<CloudCheckinFeature>('store-rop-registration')
 const activeMihotelFeature = ref<MihotelFeature>('system-params')
+const activeIhotelFeature = ref<IhotelFeature>('tmh-mock-companies')
 const userPage = ref(1)
 const userPageSize = 10
 const userTotal = ref(0)
@@ -153,6 +156,7 @@ const totalUserPages = computed(() => Math.max(1, userTotalPages.value))
 const pagedUsers = computed(() => users.value)
 const isCloudCheckinProject = computed(() => selectedProject.value?.code === 'cloud-checkin')
 const isMihotelProject = computed(() => selectedProject.value?.code === 'mihotel')
+const isIhotelProject = computed(() => selectedProject.value?.code === 'ihotel')
 const mihotelTrunkCacheTargets = computed(() =>
   mihotelCacheTargets.value.filter((target) => target.environment === 'TRUNK')
 )
@@ -1509,6 +1513,16 @@ async function nextUserPage() {
               <small>CLEAR CACHE</small>
             </button>
           </template>
+          <template v-else-if="isIhotelProject">
+            <button
+              :class="['feature-item', { active: activeIhotelFeature === 'tmh-mock-companies' }]"
+              type="button"
+              @click="activeIhotelFeature = 'tmh-mock-companies'"
+            >
+              天目湖接口模拟数据
+              <small>TMH MOCK DATA</small>
+            </button>
+          </template>
           <p v-else class="feature-empty">功能模块待补充</p>
         </aside>
 
@@ -1974,6 +1988,9 @@ async function nextUserPage() {
             </div>
           </section>
 
+          <TmhMockCompanyPanel
+            v-else-if="isIhotelProject && activeIhotelFeature === 'tmh-mock-companies'"
+          />
           <section v-else class="workspace-panel">
             <p class="eyebrow">{{ selectedProject?.code }}</p>
             <h3>运维工作区骨架</h3>

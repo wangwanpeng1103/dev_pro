@@ -12,6 +12,7 @@
 - `database/seed/20260629_001_init_ops_console_seed.sql`
 - `database/migration/20260702_001_add_cloud_checkin_project.sql`
 - `database/migration/20260702_002_fix_ops_console_utf8mb4.sql`
+- `database/migration/20260713_001_create_tmh_mock_company.sql`
 
 这些脚本由 MySQL 官方镜像的 `/docker-entrypoint-initdb.d/` 机制触发。该机制只在 MySQL 数据目录为空、首次初始化时执行；已有数据卷不会重复执行初始化脚本。
 
@@ -76,6 +77,8 @@ curl http://127.0.0.1:8080/api/health
 如果需要清空生产 MySQL 并重新执行初始化脚本，必须先确认数据可丢弃或已备份，再删除 `mysql-prod-data` 数据卷。该操作会删除生产数据库数据，不能作为常规发布步骤。
 
 如果生产库已经初始化过，只需要修复字符集和已知种子数据中文乱码，不要删除数据卷；应备份后手动执行 `database/migration/20260702_002_fix_ops_console_utf8mb4.sql`。
+
+已有生产数据卷不会自动创建天目湖模拟协议单位表。发布包含该功能的版本时，应保留数据卷，并手动执行 `database/migration/20260713_001_create_tmh_mock_company.sql`。
 
 ## 安全约定
 
