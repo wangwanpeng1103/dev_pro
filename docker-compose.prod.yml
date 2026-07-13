@@ -36,6 +36,7 @@ services:
       mysql:
         condition: service_healthy
     environment:
+      TZ: Asia/Shanghai
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
       SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL:-jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-dev_pro}?useUnicode=true&characterEncoding=utf8&connectionCollation=utf8mb4_0900_ai_ci&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
       SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-${MYSQL_USER:-devpro}}
@@ -46,6 +47,9 @@ services:
       MIHOTEL_SYSTEM_PARAM_TRUNK_BASE_URL: ${MIHOTEL_SYSTEM_PARAM_TRUNK_BASE_URL:-}
       MIHOTEL_SYSTEM_PARAM_LOCAL_BASE_URL: ${MIHOTEL_SYSTEM_PARAM_LOCAL_BASE_URL:-}
       MIHOTEL_SYSTEM_PARAM_READ_TIMEOUT_SECONDS: ${MIHOTEL_SYSTEM_PARAM_READ_TIMEOUT_SECONDS:-60}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     ports:
       - "${BACKEND_PORT:-8080}:8080"
 
@@ -56,6 +60,11 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     ports:
       - "${FRONTEND_PORT:-80}:80"
 

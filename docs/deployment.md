@@ -69,6 +69,7 @@ curl http://127.0.0.1:8080/api/health
 - `FRONTEND_PORT`：前端宿主机端口，默认 `80`。
 - `BACKEND_PORT`：后端宿主机端口，默认 `8080`。
 - `MYSQL_PORT`：生产 MySQL 宿主机端口，默认 `3306`。
+- 生产 MySQL、后端和前端容器统一使用 `Asia/Shanghai`；前后端只读挂载宿主机 `/etc/localtime` 和 `/etc/timezone`，确保容器日期为东八区。
 - 当前服务器的 `3305` 用于 SSH 登录，不能同时作为 MySQL 宿主机端口。
 - 如果服务器内部验证正常，但本机无法访问上述端口，需要检查上游安全组、网络 ACL 或机房防火墙。
 
