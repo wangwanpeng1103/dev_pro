@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { copyTextToClipboard } from './clipboard'
 
 interface ApiResponse<T> { success: boolean; message: string; data: T }
 interface PageResult<T> { records: T[]; total: number; current: number; size: number; pages: number }
@@ -126,8 +127,9 @@ async function deleteCompany(record: MockCompany) {
   }
 }
 async function copyApiUrl() {
-  await navigator.clipboard.writeText(mockApiUrl.value)
-  message.value = '模拟接口地址已复制'
+  message.value = await copyTextToClipboard(mockApiUrl.value)
+    ? '模拟接口地址已复制'
+    : '复制失败，请手动选择接口地址复制'
 }
 
 async function changePage(targetPage: number) {
