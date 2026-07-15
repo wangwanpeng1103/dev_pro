@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import TmhMockCompanyPanel from './TmhMockCompanyPanel.vue'
+import GroupHotelManagementPanel from './GroupHotelManagementPanel.vue'
 import { copyTextToClipboard } from './clipboard'
 import {
   createPermanentUser,
@@ -158,6 +159,7 @@ const pagedUsers = computed(() => users.value)
 const isCloudCheckinProject = computed(() => selectedProject.value?.code === 'cloud-checkin')
 const isMihotelProject = computed(() => selectedProject.value?.code === 'mihotel')
 const isIhotelProject = computed(() => selectedProject.value?.code === 'ihotel')
+const isGroupHotelManagementProject = computed(() => selectedProject.value?.code === 'group-hotel-management')
 const mihotelTrunkCacheTargets = computed(() =>
   mihotelCacheTargets.value.filter((target) => target.environment === 'TRUNK')
 )
@@ -1414,7 +1416,7 @@ async function nextUserPage() {
         </div>
       </div>
 
-      <div v-else class="project-workbench">
+      <div v-else-if="!isGroupHotelManagementProject" class="project-workbench">
         <aside class="feature-sidebar">
           <div class="sidebar-project">
             <span class="project-icon">{{ selectedProject?.iconText }}</span>
@@ -1952,6 +1954,9 @@ async function nextUserPage() {
             <p>这里后续承载 {{ selectedProject?.name }} 的具体运维工具。功能清单待你下次补充。</p>
           </section>
         </div>
+      </div>
+      <div v-else class="group-hotel-workbench">
+        <GroupHotelManagementPanel />
       </div>
     </section>
 

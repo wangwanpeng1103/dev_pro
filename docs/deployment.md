@@ -13,6 +13,9 @@
 - `database/migration/20260702_001_add_cloud_checkin_project.sql`
 - `database/migration/20260702_002_fix_ops_console_utf8mb4.sql`
 - `database/migration/20260713_001_create_tmh_mock_company.sql`
+- `database/migration/20260715_001_create_pms_connection_config.sql`
+- `database/migration/20260715_002_make_pms_connection_config_fields_optional.sql`
+- `database/migration/20260715_003_remove_default_ssh_port.sql`
 
 这些脚本由 MySQL 官方镜像的 `/docker-entrypoint-initdb.d/` 机制触发。该机制只在 MySQL 数据目录为空、首次初始化时执行；已有数据卷不会重复执行初始化脚本。
 
@@ -81,6 +84,8 @@ curl http://127.0.0.1:8080/api/health
 
 已有生产数据卷不会自动创建天目湖模拟协议单位表。发布包含该功能的版本时，应保留数据卷，并手动执行 `database/migration/20260713_001_create_tmh_mock_company.sql`。
 
+
+已有生产数据卷不会自动执行集团酒店管理迁移。发布该模块时，应保留数据卷并按顺序手动执行 `database/migration/20260715_001_create_pms_connection_config.sql`、`20260715_002_make_pms_connection_config_fields_optional.sql` 和 `20260715_003_remove_default_ssh_port.sql`。
 ## 安全约定
 
 - 数据库密码、服务器密码和 root 权限信息不得写入 Git。

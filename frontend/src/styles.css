@@ -1621,3 +1621,10 @@ small,
     flex-direction: column;
   }
 }
+
+.group-hotel-workbench {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  overflow: auto;
+}
